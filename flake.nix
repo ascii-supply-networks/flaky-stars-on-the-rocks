@@ -86,6 +86,7 @@
     {
       overlays.default = final: _prev: {
         starrocks-maven-repository = final.callPackage ./nix/packages/starrocks-maven-repository.nix { };
+        starrocks-thrift = final.callPackage ./nix/packages/starrocks-thrift.nix { };
         starrocks-thirdparty-sources =
           final.callPackage ./nix/packages/starrocks-thirdparty-sources.nix
             { };
@@ -140,7 +141,8 @@
             libtool
             bison
             protobuf
-            thrift
+            python3
+            starrocks-thrift
           ];
         };
       });

@@ -10,6 +10,8 @@ Nix flake for building and running StarRocks 3.5.17 in development and CI.
 - `apps.<linux-system>.starrocks-single-node-vm`: single-node NixOS VM.
 - `checks.<linux-system>.starrocks-single-node`: one FE and one BE.
 - `checks.<linux-system>.starrocks-multinode`: one FE and two BEs.
+- `devShells.<system>.default`: Linux and macOS shell with JDK 21, Maven,
+  Python, and the StarRocks-matching Thrift 0.20 compiler.
 
 The StarRocks package is source-first. The flake fetches the StarRocks GitHub
 tag, vendors the upstream source archives and Maven inputs, builds StarRocks'
@@ -22,6 +24,18 @@ The default build and runtime JDK is OpenJDK 21. StarRocks 3.5 requires JDK 17
 or newer, and the NixOS module lets you override `services.starrocks.jdk`.
 
 ## Quick Start
+
+Enter the flake dev shell:
+
+```sh
+nix develop
+```
+
+Or let direnv load it when you enter the checkout:
+
+```sh
+direnv allow
+```
 
 Build the package:
 
@@ -44,9 +58,9 @@ nix build .#checks.aarch64-linux.starrocks-single-node -L
 nix build .#checks.aarch64-linux.starrocks-multinode -L
 ```
 
-On macOS, use the dev shell locally and build the Linux package through a Nix
-Linux builder. StarRocks 3.5.17 does not provide a native macOS FE+BE server
-build path.
+On macOS, use the dev shell for source work. The FE Java modules build there,
+but the full FE+BE server package and VM checks are Linux-only. StarRocks'
+BE code still assumes Linux APIs and Linux shared-library layout.
 
 ## Single Node
 
