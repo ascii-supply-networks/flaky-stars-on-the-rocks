@@ -1,0 +1,41 @@
+name: Refresh fixed-output hashes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Refresh hashes
+        run: nix/scripts/update-fixed-output-hashes.sh
+
+      - name: Format
+        run: nix fmt
+
+      - name: Show diff
+        run: git diff -- nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: ci/refresh-starrocks-fixed-output-hashes
+          title: "Refresh StarRocks fixed-output hashes"
+          commit-message: "Refresh StarRocks fixed-output hashes"
+          body: |
+            Updates the fixed-output hashes produced by the StarRocks 3.5.17 source vendoring steps.
