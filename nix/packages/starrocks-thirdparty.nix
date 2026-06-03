@@ -5,6 +5,7 @@
   callPackage,
   autoconf,
   automake,
+  automake116x,
   bash,
   binutils,
   bison,
@@ -75,6 +76,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     autoconf
     automake
+    automake116x
     bash
     binutils
     bison
