@@ -93,6 +93,8 @@ stdenv.mkDerivation {
     zip
   ];
 
+  dontUseCmakeConfigure = true;
+
   postPatch = ''
     patchShebangs thirdparty
     substituteInPlace thirdparty/vars.sh \
