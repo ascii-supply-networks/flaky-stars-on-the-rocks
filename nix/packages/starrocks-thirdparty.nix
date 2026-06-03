@@ -140,7 +140,12 @@ stdenv.mkDerivation {
     #include <cstdint>'
     substituteInPlace thirdparty/build-thirdparty.sh \
       --replace-fail 'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g ' \
-        'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g -Wno-array-bounds -Wno-error=array-bounds -Wno-stringop-overflow -Wno-error=stringop-overflow '
+        'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g -Wno-error -Wno-array-bounds -Wno-error=array-bounds -Wno-stringop-overflow -Wno-error=stringop-overflow '
+    perl -0pi -e '
+      our $replaced;
+      $replaced += s@(-Dxsimd_DIR=\$TP_INSTALL_DIR/share/cmake/xsimd \.\.\n\n)    \$\{BUILD_SYSTEM\} -j\$PARALLEL\n    \$\{BUILD_SYSTEM\} install@$1    if ! \$BUILD_SYSTEM -j\$PARALLEL; then\n        echo "Arrow parallel build failed; retrying serially for deterministic output"\n        \$BUILD_SYSTEM -j1 VERBOSE=1\n    fi\n    \$BUILD_SYSTEM install@;
+      END { die "failed to patch build_arrow build command\n" unless $replaced }
+    ' thirdparty/build-thirdparty.sh
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
