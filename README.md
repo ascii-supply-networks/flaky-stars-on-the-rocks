@@ -133,10 +133,10 @@ plans.
 The `Build and Publish Cache` workflow performs the native Linux package builds
 on main-branch pushes and by manual dispatch. It runs on organization
 GitHub-hosted larger runners and can push the build closures to Cachix.
-Provision hosted runners with these names:
+Provision hosted runners with these names and runner groups:
 
-- x86_64 runner: `x86-xlarge`
-- aarch64 runner: `aarch-xlarge`
+- x86_64 runner: label `x86-xlarge`, group `ascii-rs`
+- aarch64 runner: label `aarch-xlarge`, group `Default`
 
 Create the GitHub Environment `publish-nix` and configure:
 

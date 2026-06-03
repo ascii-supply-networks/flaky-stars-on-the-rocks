@@ -13,7 +13,9 @@ env:
 
 jobs:
   refresh-x86:
-    runs-on: x86-xlarge
+    runs-on:
+      group: ascii-rs
+      labels: x86-xlarge
     timeout-minutes: 360
     outputs:
       thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}
@@ -38,7 +40,9 @@ jobs:
             nix/packages/starrocks-maven-repository.nix >> "$GITHUB_OUTPUT"
 
   refresh-aarch:
-    runs-on: aarch-xlarge
+    runs-on:
+      group: Default
+      labels: aarch-xlarge
     timeout-minutes: 360
     outputs:
       thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}

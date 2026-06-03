@@ -27,7 +27,9 @@ env:
 jobs:
   build:
     name: build ${{ matrix.system }}
-    runs-on: ${{ matrix.runner }}
+    runs-on:
+      group: ${{ matrix.runner_group }}
+      labels: ${{ matrix.runner_label }}
     environment: publish-nix
     timeout-minutes: 720
     env:
@@ -40,9 +42,11 @@ jobs:
       matrix:
         include:
           - system: x86_64-linux
-            runner: x86-xlarge
+            runner_group: ascii-rs
+            runner_label: x86-xlarge
           - system: aarch64-linux
-            runner: aarch-xlarge
+            runner_group: Default
+            runner_label: aarch-xlarge
 
     steps:
       - name: Checkout code
