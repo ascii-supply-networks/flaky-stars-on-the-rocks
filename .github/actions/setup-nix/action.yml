@@ -1,14 +1,32 @@
 name: Setup Nix
-description: Install Nix and enable the GitHub Actions backed Nix cache
+description: Install Nix and enable Cachix plus the GitHub Actions backed Nix cache
+
+inputs:
+  cachix-cache-name:
+    description: Cachix cache name to configure before Magic Nix Cache
+    required: false
+    default: ""
+  cachix-auth-token:
+    description: Cachix auth token for private cache reads or cache publishing
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
     - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@main
+      uses: cachix/install-nix-action@v31.10.1
       with:
-        extra-conf: |
+        nix_path: nixpkgs=channel:nixpkgs-unstable
+        extra_nix_config: |
           accept-flake-config = true
+
+    - name: Setup Cachix
+      if: inputs.cachix-cache-name != ''
+      uses: cachix/cachix-action@v17
+      with:
+        name: ${{ inputs.cachix-cache-name }}
+        authToken: ${{ inputs.cachix-auth-token }}
 
     - name: Setup Magic Nix Cache
       uses: DeterminateSystems/magic-nix-cache-action@v13

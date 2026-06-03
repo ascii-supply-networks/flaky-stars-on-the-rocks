@@ -137,13 +137,16 @@ Create the GitHub Environment `publish-nix` and configure:
 
 - Environment variable `CACHIX_CACHE_NAME`: Cachix cache name.
 - Environment secret `CACHIX_AUTH_TOKEN`: Cachix auth token with push access.
-- Optional environment variable `NIX_BUILD_CORES`: defaults to `16`.
-- Optional environment variable `NIX_MAX_JOBS`: defaults to `1`.
 
 The default build flags are `--cores 16 --max-jobs 1`. The StarRocks build
 already fans out internally across `NIX_BUILD_CORES`; keep `NIX_MAX_JOBS=1`
 unless the runner has enough spare memory to run independent Nix builds at the
 same time.
+
+The shared setup action installs Nix with `cachix/install-nix-action`, configures
+Cachix when a cache name is provided, and then starts Magic Nix Cache. This keeps
+Magic Nix Cache on the GitHub Actions cache path without requiring FlakeHub or
+Determinate Nix credentials.
 
 The fixed-output hashes for third-party source vendoring and Maven vendoring are
 refreshed by the manual `Refresh fixed-output hashes` workflow.

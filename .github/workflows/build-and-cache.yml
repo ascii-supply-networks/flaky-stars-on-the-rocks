@@ -28,8 +28,8 @@ jobs:
     environment: publish-nix
     timeout-minutes: 720
     env:
-      NIX_BUILD_CORES: ${{ vars.NIX_BUILD_CORES || '16' }}
-      NIX_MAX_JOBS: ${{ vars.NIX_MAX_JOBS || '1' }}
+      NIX_BUILD_CORES: "16"
+      NIX_MAX_JOBS: "1"
       CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
       CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
     strategy:
@@ -45,9 +45,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6.0.2
 
-      - name: Setup Nix
-        uses: ./.github/actions/setup-nix
-
       - name: Check Cachix credentials
         if: env.PUBLISH_CACHE == 'true'
         run: |
@@ -56,12 +53,11 @@ jobs:
             exit 1
           fi
 
-      - name: Configure Cachix
-        if: env.PUBLISH_CACHE == 'true'
-        uses: cachix/cachix-action@v17
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
         with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ env.PUBLISH_CACHE == 'true' && env.CACHIX_CACHE_NAME || '' }}
+          cachix-auth-token: ${{ env.PUBLISH_CACHE == 'true' && env.CACHIX_AUTH_TOKEN || '' }}
 
       - name: Build package closure
         run: |
