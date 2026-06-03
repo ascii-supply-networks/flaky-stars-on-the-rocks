@@ -34,6 +34,7 @@
   util-linux,
   wget,
   which,
+  writeShellScript,
   xz,
   zip,
   starrocks-thirdparty-sources ? callPackage ./starrocks-thirdparty-sources.nix { },
@@ -48,6 +49,17 @@ let
       aarch64-linux = "aarch64";
     }
     .${system} or (throw "StarRocks third-party build is supported only on Linux, got ${system}");
+  cmakeWithPolicy = writeShellScript "starrocks-cmake-with-policy" ''
+    for arg in "$@"; do
+      case "$arg" in
+        --build|--install|--version|--help|-E|-P)
+          exec ${cmake}/bin/cmake "$@"
+          ;;
+      esac
+    done
+
+    exec ${cmake}/bin/cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 "$@"
+  '';
 in
 stdenv.mkDerivation {
   pname = "starrocks-thirdparty";
@@ -124,7 +136,7 @@ stdenv.mkDerivation {
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
-    export CUSTOM_CMAKE=${cmake}/bin/cmake
+    export CUSTOM_CMAKE=${cmakeWithPolicy}
     export JAVA_HOME=${jdk}
     export PARALLEL=''${NIX_BUILD_CORES:-1}
     export THIRD_PARTY_BUILD_WITH_AVX2=OFF
