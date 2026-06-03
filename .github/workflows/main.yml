@@ -6,11 +6,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      full-build:
-        description: "Build StarRocks and run the single-node VM integration check"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -42,20 +37,3 @@ jobs:
         run: |
           nix build .#packages.x86_64-linux.starrocks --dry-run
           nix build .#packages.aarch64-linux.starrocks --dry-run
-
-  full-build:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.full-build == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6.0.2
-
-      - name: Setup Nix
-        uses: ./.github/actions/setup-nix
-
-      - name: Build StarRocks
-        run: nix build .#packages.x86_64-linux.starrocks -L
-
-      - name: Run single-node integration check
-        run: nix build .#checks.x86_64-linux.starrocks-single-node -L

@@ -1,0 +1,114 @@
+name: Build and Publish Cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish-cache:
+        description: "Push build closures to Cachix"
+        type: boolean
+        default: true
+      run-vm-checks:
+        description: "Run VM integration checks after the package build"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  NIX_BUILD_CORES: ${{ vars.NIX_BUILD_CORES || '8' }}
+  NIX_MAX_JOBS: ${{ vars.NIX_MAX_JOBS || '1' }}
+  PUBLISH_CACHE: ${{ inputs.publish-cache }}
+  RUN_VM_CHECKS: ${{ inputs.run-vm-checks }}
+
+jobs:
+  build:
+    name: build ${{ matrix.system }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: '["self-hosted","Linux","X64"]'
+          - system: aarch64-linux
+            runner: '["self-hosted","Linux","ARM64"]'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Check Cachix credentials
+        if: env.PUBLISH_CACHE == 'true'
+        env:
+          CACHIX_CACHE_NAME: ${{ secrets.CACHIX_CACHE_NAME }}
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          if [[ -z "$CACHIX_CACHE_NAME" || -z "$CACHIX_AUTH_TOKEN" ]]; then
+            echo "::error::CACHIX_CACHE_NAME and CACHIX_AUTH_TOKEN are required when publish-cache is enabled"
+            exit 1
+          fi
+
+      - name: Configure Cachix
+        if: env.PUBLISH_CACHE == 'true'
+        uses: cachix/cachix-action@v17
+        with:
+          name: ${{ secrets.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build package closure
+        env:
+          CACHIX_CACHE_NAME: ${{ secrets.CACHIX_CACHE_NAME }}
+        run: |
+          set -euo pipefail
+
+          nix_build_flags=(
+            --print-build-logs
+            --cores "$NIX_BUILD_CORES"
+            --max-jobs "$NIX_MAX_JOBS"
+          )
+
+          build_and_maybe_push() {
+            local attr="$1"
+            local out_link="$2"
+
+            nix build "$attr" "${nix_build_flags[@]}" --out-link "$out_link"
+
+            if [[ "$PUBLISH_CACHE" == "true" ]]; then
+              nix path-info --recursive "$(readlink "$out_link")" \
+                | cachix push "$CACHIX_CACHE_NAME"
+            fi
+          }
+
+          build_and_maybe_push \
+            ".#packages.${{ matrix.system }}.starrocks-thirdparty-sources" \
+            "result-${{ matrix.system }}-thirdparty-sources"
+          build_and_maybe_push \
+            ".#packages.${{ matrix.system }}.starrocks-maven-repository" \
+            "result-${{ matrix.system }}-maven-repository"
+          build_and_maybe_push \
+            ".#packages.${{ matrix.system }}.starrocks-thirdparty" \
+            "result-${{ matrix.system }}-thirdparty"
+          build_and_maybe_push \
+            ".#packages.${{ matrix.system }}.starrocks" \
+            "result-${{ matrix.system }}-starrocks"
+
+      - name: Run VM integration checks
+        if: env.RUN_VM_CHECKS == 'true'
+        run: |
+          set -euo pipefail
+
+          nix_build_flags=(
+            --print-build-logs
+            --cores "$NIX_BUILD_CORES"
+            --max-jobs "$NIX_MAX_JOBS"
+          )
+
+          nix build ".#checks.${{ matrix.system }}.starrocks-single-node" "${nix_build_flags[@]}"
+          nix build ".#checks.${{ matrix.system }}.starrocks-multinode" "${nix_build_flags[@]}"

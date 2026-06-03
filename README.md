@@ -124,8 +124,15 @@ For two BE hosts, tables can use `replication_num = "2"`.
 
 The main workflow installs Nix, enables the GitHub Actions backed Nix cache,
 checks formatting, evaluates every flake output, and dry-runs both Linux package
-plans. A manual full-build workflow input builds the x86_64 Linux package and
-runs the single-node VM check.
+plans.
+
+The manual `Build and Publish Cache` workflow performs the native Linux package
+builds on self-hosted runners and can push the build closures to Cachix.
+Provision runners with the labels `self-hosted, Linux, X64` and `self-hosted,
+Linux, ARM64`, then set `CACHIX_CACHE_NAME` and `CACHIX_AUTH_TOKEN` as
+repository secrets. The workflow defaults to `--cores 8 --max-jobs 1`; tune
+repository variables `NIX_BUILD_CORES` and `NIX_MAX_JOBS` when the runner size
+changes.
 
 The fixed-output hashes for third-party source vendoring and Maven vendoring are
 refreshed by the manual `Refresh fixed-output hashes` workflow.
