@@ -138,6 +138,9 @@ stdenv.mkDerivation {
     substituteInPlace thirdparty/src/abseil-cpp-20220623.0/absl/container/internal/container_memory.h \
       --replace-fail '#include "absl/utility/utility.h"' '#include "absl/utility/utility.h"
     #include <cstdint>'
+    substituteInPlace thirdparty/build-thirdparty.sh \
+      --replace-fail 'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g ' \
+        'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g -Wno-array-bounds -Wno-error=array-bounds '
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
