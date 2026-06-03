@@ -130,12 +130,13 @@ The main workflow installs Nix, enables the GitHub Actions backed Nix cache,
 checks formatting, evaluates every flake output, and dry-runs both Linux package
 plans.
 
-The manual `Build and Publish Cache` workflow performs the native Linux package
-builds on self-hosted runners and can push the build closures to Cachix.
-Provision runners with these labels:
+The `Build and Publish Cache` workflow performs the native Linux package builds
+on main-branch pushes and by manual dispatch. It runs on organization
+GitHub-hosted larger runners and can push the build closures to Cachix.
+Provision hosted runners with these names:
 
-- x86_64 runner: `self-hosted`, `Linux`, `X64`, `x86-xlarge`
-- aarch64 runner: `self-hosted`, `Linux`, `ARM64`, `aarch-xlarge`
+- x86_64 runner: `x86-xlarge`
+- aarch64 runner: `aarch-xlarge`
 
 Create the GitHub Environment `publish-nix` and configure:
 
@@ -147,9 +148,9 @@ already fans out internally across `NIX_BUILD_CORES`; keep `NIX_MAX_JOBS=1`
 unless the runner has enough spare memory to run independent Nix builds at the
 same time.
 
-Before running `Build and Publish Cache`, run `Refresh fixed-output hashes` and
-merge the generated PR. The package build intentionally fails early while the
-vendored third-party and Maven hashes are still `lib.fakeHash`.
+Before relying on `Build and Publish Cache`, run `Refresh fixed-output hashes`
+and merge the generated PR. The package build intentionally fails early while
+the vendored third-party and Maven hashes are still `lib.fakeHash`.
 
 The shared setup action installs Nix with `cachix/install-nix-action`, configures
 Cachix when a cache name is provided, and then starts Magic Nix Cache. This keeps

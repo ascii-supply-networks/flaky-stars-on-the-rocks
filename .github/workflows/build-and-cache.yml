@@ -1,6 +1,9 @@
 name: Build and Publish Cache
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       publish-cache:
@@ -18,13 +21,13 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  PUBLISH_CACHE: ${{ inputs.publish-cache }}
-  RUN_VM_CHECKS: ${{ inputs.run-vm-checks }}
+  PUBLISH_CACHE: ${{ github.event_name != 'workflow_dispatch' || inputs.publish-cache }}
+  RUN_VM_CHECKS: ${{ github.event_name == 'workflow_dispatch' && inputs.run-vm-checks }}
 
 jobs:
   build:
     name: build ${{ matrix.system }}
-    runs-on: ${{ fromJSON(matrix.runner) }}
+    runs-on: ${{ matrix.runner }}
     environment: publish-nix
     timeout-minutes: 720
     env:
@@ -37,9 +40,9 @@ jobs:
       matrix:
         include:
           - system: x86_64-linux
-            runner: '["self-hosted","Linux","X64","x86-xlarge"]'
+            runner: x86-xlarge
           - system: aarch64-linux
-            runner: '["self-hosted","Linux","ARM64","aarch-xlarge"]'
+            runner: aarch-xlarge
 
     steps:
       - name: Checkout code

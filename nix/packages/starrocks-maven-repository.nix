@@ -111,7 +111,7 @@ stdenvNoCC.mkDerivation {
     )
 
     mvn "''${mvn_common[@]}" -f fe/pom.xml \
-      -pl spark-dpp,fe-core \
+      -pl fe-server \
       -am \
       dependency:go-offline
 

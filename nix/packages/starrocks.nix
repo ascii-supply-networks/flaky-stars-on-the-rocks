@@ -145,9 +145,9 @@ stdenv.mkDerivation {
   postPatch = ''
     patchShebangs .
     substituteInPlace build.sh \
-      --replace-fail 'FE_MODULES="hive-udf,fe-common,spark-dpp,fe-core"' 'FE_MODULES="fe-common,fe-core"' \
-      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
-      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/hive-udf/target/hive-udf-1.0.0.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
+      --replace-fail 'FE_MODULES="plugin/hive-udf,fe-testing,plugin/spark-dpp,fe-server"' 'FE_MODULES="fe-server"' \
+      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
+      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/hive-udf/target/hive-udf-*.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
   '';
 
   buildPhase = ''

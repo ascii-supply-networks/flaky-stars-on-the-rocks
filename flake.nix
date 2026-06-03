@@ -85,13 +85,15 @@
     in
     {
       overlays.default = final: _prev: {
-        starrocks-maven-repository = final.callPackage ./nix/packages/starrocks-maven-repository.nix { };
         starrocks-thrift = final.callPackage ./nix/packages/starrocks-thrift.nix { };
+        starrocks-maven-repository = final.callPackage ./nix/packages/starrocks-maven-repository.nix {
+          thrift = final.starrocks-thrift;
+        };
         starrocks-thirdparty-sources =
           final.callPackage ./nix/packages/starrocks-thirdparty-sources.nix
             { };
         starrocks-thirdparty = final.callPackage ./nix/packages/starrocks-thirdparty.nix { };
-        starrocks = final.callPackage ./nix/packages/starrocks.nix { };
+        starrocks = final.callPackage ./nix/packages/starrocks.nix { thrift = final.starrocks-thrift; };
       };
 
       packages = forSystems packageSystems (
