@@ -22,6 +22,7 @@
   gnutar,
   gzip,
   libtool,
+  maven,
   ninja,
   openjdk21,
   jdk ? openjdk21,
@@ -79,6 +80,7 @@ stdenv.mkDerivation {
     gnutar
     gzip
     libtool
+    maven
     ninja
     jdk
     patch
