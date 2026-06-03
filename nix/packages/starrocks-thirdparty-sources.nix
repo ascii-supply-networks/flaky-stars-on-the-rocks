@@ -30,7 +30,7 @@ let
       or (throw "StarRocks third-party source vendoring is supported only on Linux, got ${system}");
 
   hashes = {
-    x86_64-linux = lib.fakeHash;
+    x86_64-linux = "sha256-z//aFgdHc54bRO/C6i3TDkKNyJxytLscsdGvglESNBc=";
     aarch64-linux = lib.fakeHash;
   };
 in
