@@ -153,9 +153,9 @@ and merge the generated PR. The package build intentionally fails early while
 the vendored third-party and Maven hashes are still `lib.fakeHash`.
 
 The shared setup action installs Nix with `cachix/install-nix-action`, configures
-Cachix when a cache name is provided, and then starts Magic Nix Cache. This keeps
-Magic Nix Cache on the GitHub Actions cache path without requiring FlakeHub or
-Determinate Nix credentials.
+Cachix when a cache name is provided, and then starts Magic Nix Cache with
+FlakeHub disabled. Cachix is the binary cache publication path; Magic Nix Cache is
+only used for GitHub Actions cache reuse.
 
 The fixed-output hashes for third-party source vendoring and Maven vendoring are
 refreshed by the manual `Refresh fixed-output hashes` workflow.
