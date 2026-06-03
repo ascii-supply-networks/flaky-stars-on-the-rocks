@@ -18,8 +18,6 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  NIX_BUILD_CORES: ${{ vars.NIX_BUILD_CORES || '8' }}
-  NIX_MAX_JOBS: ${{ vars.NIX_MAX_JOBS || '1' }}
   PUBLISH_CACHE: ${{ inputs.publish-cache }}
   RUN_VM_CHECKS: ${{ inputs.run-vm-checks }}
 
@@ -27,15 +25,21 @@ jobs:
   build:
     name: build ${{ matrix.system }}
     runs-on: ${{ fromJSON(matrix.runner) }}
+    environment: publish-nix
     timeout-minutes: 720
+    env:
+      NIX_BUILD_CORES: ${{ vars.NIX_BUILD_CORES || '16' }}
+      NIX_MAX_JOBS: ${{ vars.NIX_MAX_JOBS || '1' }}
+      CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - system: x86_64-linux
-            runner: '["self-hosted","Linux","X64"]'
+            runner: '["self-hosted","Linux","X64","x86-xlarge"]'
           - system: aarch64-linux
-            runner: '["self-hosted","Linux","ARM64"]'
+            runner: '["self-hosted","Linux","ARM64","aarch-xlarge"]'
 
     steps:
       - name: Checkout code
@@ -46,12 +50,9 @@ jobs:
 
       - name: Check Cachix credentials
         if: env.PUBLISH_CACHE == 'true'
-        env:
-          CACHIX_CACHE_NAME: ${{ secrets.CACHIX_CACHE_NAME }}
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
         run: |
           if [[ -z "$CACHIX_CACHE_NAME" || -z "$CACHIX_AUTH_TOKEN" ]]; then
-            echo "::error::CACHIX_CACHE_NAME and CACHIX_AUTH_TOKEN are required when publish-cache is enabled"
+            echo "::error::CACHIX_CACHE_NAME variable and CACHIX_AUTH_TOKEN secret are required when publish-cache is enabled"
             exit 1
           fi
 
@@ -59,12 +60,10 @@ jobs:
         if: env.PUBLISH_CACHE == 'true'
         uses: cachix/cachix-action@v17
         with:
-          name: ${{ secrets.CACHIX_CACHE_NAME }}
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          name: ${{ env.CACHIX_CACHE_NAME }}
+          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
 
       - name: Build package closure
-        env:
-          CACHIX_CACHE_NAME: ${{ secrets.CACHIX_CACHE_NAME }}
         run: |
           set -euo pipefail
 
