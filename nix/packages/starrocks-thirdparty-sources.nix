@@ -37,11 +37,11 @@ in
 stdenvNoCC.mkDerivation {
   pname = "starrocks-thirdparty-sources";
   version = release.version;
-  __structuredAttrs = true;
 
-  # This output is a source bundle. Its bytes are fixed by outputHash, but some
-  # downloaded sources contain Nix store references from build-time tooling.
-  unsafeDiscardReferences.out = true;
+  # Keep vendored source payloads byte-for-byte source-like. The normal fixup
+  # phase can rewrite shebangs under $out/src to Nix store paths, which fixed
+  # output derivations reject and downstream builds should not inherit.
+  dontFixup = true;
 
   src = fetchFromGitHub {
     owner = release.sourceOwner;
