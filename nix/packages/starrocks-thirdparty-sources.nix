@@ -37,6 +37,11 @@ in
 stdenvNoCC.mkDerivation {
   pname = "starrocks-thirdparty-sources";
   version = release.version;
+  __structuredAttrs = true;
+
+  # This output is a source bundle. Its bytes are fixed by outputHash, but some
+  # downloaded sources contain Nix store references from build-time tooling.
+  unsafeDiscardReferences.out = true;
 
   src = fetchFromGitHub {
     owner = release.sourceOwner;
