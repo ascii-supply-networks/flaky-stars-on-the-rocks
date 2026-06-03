@@ -31,7 +31,7 @@ let
 
   hashes = {
     x86_64-linux = "sha256-UuzEWOHJFes4gEfjfYdxGhf3QjgGtud/gRYmV6ZymNc=";
-    aarch64-linux = lib.fakeHash;
+    aarch64-linux = "sha256-UEvUP+lJHuh8UImJ0HDB+LcBIzQ6fEgUBBDK7pmYS0Q=";
   };
 in
 stdenvNoCC.mkDerivation {

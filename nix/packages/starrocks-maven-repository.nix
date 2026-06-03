@@ -20,7 +20,7 @@ let
   system = stdenvNoCC.hostPlatform.system;
   hashes = {
     x86_64-linux = "sha256-daj/ixY5PCD70qHXiXyMm4fXBhxEl5DKCW3kyxRTSbQ=";
-    aarch64-linux = lib.fakeHash;
+    aarch64-linux = "sha256-RfdKwkIdG94ytMm58xuzNCMFGGFhzODrg7D4xampHYc=";
   };
   setupMavenJavaHome = ''
     real_java_home="$(${jdk}/bin/java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.home = //p')"

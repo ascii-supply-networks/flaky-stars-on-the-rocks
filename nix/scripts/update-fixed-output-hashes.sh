@@ -15,9 +15,11 @@ replace_hash() {
   fi
 
   SYSTEM="$system" HASH="$hash" perl -0pi -e '
-    my $system = $ENV{"SYSTEM"};
+    our $replaced;
+    my $system = quotemeta($ENV{"SYSTEM"});
     my $hash = $ENV{"HASH"};
-    s/(\Q$system\E = )("[^"]+"|lib\.fakeHash)(;)/$1"$hash"$3/;
+    $replaced += s/(hashes\s*=\s*\{\n(?:[^\n]*\n)*?[[:blank:]]*$system[[:blank:]]*=[[:blank:]]*)("[^"]+"|lib\.fakeHash)([[:blank:]]*;)/$1"$hash"$3/m;
+    END { die "failed to replace hash for $ENV{SYSTEM} in $ARGV\n" unless $replaced }
   ' "$file"
 }
 
