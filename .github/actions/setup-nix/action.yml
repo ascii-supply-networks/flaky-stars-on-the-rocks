@@ -15,7 +15,7 @@ runs:
   using: composite
   steps:
     - name: Install Nix
-      uses: cachix/install-nix-action@v31.10.1
+      uses: cachix/install-nix-action@v31.10.6
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
         extra_nix_config: |
@@ -29,4 +29,4 @@ runs:
         authToken: ${{ inputs.cachix-auth-token }}
 
     - name: Setup Magic Nix Cache
-      uses: DeterminateSystems/magic-nix-cache-action@v13
+      uses: DeterminateSystems/magic-nix-cache-action@v14

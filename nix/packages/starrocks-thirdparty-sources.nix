@@ -39,8 +39,8 @@ stdenvNoCC.mkDerivation {
   version = release.version;
 
   src = fetchFromGitHub {
-    owner = "StarRocks";
-    repo = "starrocks";
+    owner = release.sourceOwner;
+    repo = release.sourceRepo;
     inherit (release) rev;
     hash = release.sourceHash;
   };

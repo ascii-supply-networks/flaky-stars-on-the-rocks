@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Check Cachix credentials
         if: env.PUBLISH_CACHE == 'true'
@@ -58,6 +58,14 @@ jobs:
         with:
           cachix-cache-name: ${{ env.PUBLISH_CACHE == 'true' && env.CACHIX_CACHE_NAME || '' }}
           cachix-auth-token: ${{ env.PUBLISH_CACHE == 'true' && env.CACHIX_AUTH_TOKEN || '' }}
+
+      - name: Check fixed-output hashes
+        run: |
+          set -euo pipefail
+          if grep -R "lib.fakeHash" nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix; then
+            echo "::error::Run the Refresh fixed-output hashes workflow before building the package closure"
+            exit 1
+          fi
 
       - name: Build package closure
         run: |

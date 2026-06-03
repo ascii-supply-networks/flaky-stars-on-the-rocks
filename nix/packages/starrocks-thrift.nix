@@ -22,6 +22,6 @@ thrift.overrideAttrs (old: {
   doCheck = false;
 
   meta = old.meta // {
-    description = "Apache Thrift compiler pinned to the version used by StarRocks 3.5.17";
+    description = "Apache Thrift compiler pinned to the version used by StarRocks";
   };
 })

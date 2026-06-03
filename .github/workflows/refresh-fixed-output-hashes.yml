@@ -12,18 +12,77 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  refresh:
-    runs-on: ubuntu-latest
+  refresh-x86:
+    runs-on: [self-hosted, Linux, X64, x86-xlarge]
     timeout-minutes: 360
+    outputs:
+      thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}
+      maven-repository-hash: ${{ steps.hashes.outputs.maven-repository-hash }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Setup Nix
         uses: ./.github/actions/setup-nix
 
-      - name: Refresh hashes
-        run: nix/scripts/update-fixed-output-hashes.sh
+      - name: Refresh x86_64-linux hashes
+        run: nix/scripts/update-fixed-output-hashes.sh x86_64-linux
+
+      - name: Export hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          sed -nE 's/^[[:space:]]*x86_64-linux = "([^"]+)";/thirdparty-sources-hash=\1/p' \
+            nix/packages/starrocks-thirdparty-sources.nix >> "$GITHUB_OUTPUT"
+          sed -nE 's/^[[:space:]]*x86_64-linux = "([^"]+)";/maven-repository-hash=\1/p' \
+            nix/packages/starrocks-maven-repository.nix >> "$GITHUB_OUTPUT"
+
+  refresh-aarch:
+    runs-on: [self-hosted, Linux, ARM64, aarch-xlarge]
+    timeout-minutes: 360
+    outputs:
+      thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}
+      maven-repository-hash: ${{ steps.hashes.outputs.maven-repository-hash }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Refresh aarch64-linux hashes
+        run: nix/scripts/update-fixed-output-hashes.sh aarch64-linux
+
+      - name: Export hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          sed -nE 's/^[[:space:]]*aarch64-linux = "([^"]+)";/thirdparty-sources-hash=\1/p' \
+            nix/packages/starrocks-thirdparty-sources.nix >> "$GITHUB_OUTPUT"
+          sed -nE 's/^[[:space:]]*aarch64-linux = "([^"]+)";/maven-repository-hash=\1/p' \
+            nix/packages/starrocks-maven-repository.nix >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: [refresh-x86, refresh-aarch]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Apply hashes
+        env:
+          X86_THIRDPARTY_SOURCES_HASH: ${{ needs.refresh-x86.outputs.thirdparty-sources-hash }}
+          X86_MAVEN_REPOSITORY_HASH: ${{ needs.refresh-x86.outputs.maven-repository-hash }}
+          AARCH_THIRDPARTY_SOURCES_HASH: ${{ needs.refresh-aarch.outputs.thirdparty-sources-hash }}
+          AARCH_MAVEN_REPOSITORY_HASH: ${{ needs.refresh-aarch.outputs.maven-repository-hash }}
+        run: |
+          set -euo pipefail
+          nix/scripts/update-fixed-output-hashes.sh --replace-only \
+            x86_64-linux "$X86_THIRDPARTY_SOURCES_HASH" "$X86_MAVEN_REPOSITORY_HASH" \
+            aarch64-linux "$AARCH_THIRDPARTY_SOURCES_HASH" "$AARCH_MAVEN_REPOSITORY_HASH"
 
       - name: Format
         run: nix fmt
@@ -32,10 +91,10 @@ jobs:
         run: git diff -- nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@v8.1.1
         with:
           branch: ci/refresh-starrocks-fixed-output-hashes
           title: "Refresh StarRocks fixed-output hashes"
           commit-message: "Refresh StarRocks fixed-output hashes"
           body: |
-            Updates the fixed-output hashes produced by the StarRocks 3.5.17 source vendoring steps.
+            Updates the fixed-output hashes produced by the pinned StarRocks source vendoring steps.

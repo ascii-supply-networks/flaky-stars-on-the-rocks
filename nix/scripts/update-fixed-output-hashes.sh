@@ -4,6 +4,44 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+replace_hash() {
+  local file="$1"
+  local system="$2"
+  local hash="$3"
+
+  if [[ -z "$hash" ]]; then
+    echo "missing hash for $system in $file" >&2
+    exit 1
+  fi
+
+  SYSTEM="$system" HASH="$hash" perl -0pi -e '
+    my $system = $ENV{"SYSTEM"};
+    my $hash = $ENV{"HASH"};
+    s/(\Q$system\E = )("[^"]+"|lib\.fakeHash)(;)/$1"$hash"$3/;
+  ' "$file"
+}
+
+if [[ "${1:-}" == "--replace-only" ]]; then
+  shift
+
+  while [[ "$#" -gt 0 ]]; do
+    if [[ "$#" -lt 3 ]]; then
+      echo "usage: $0 --replace-only <system> <thirdparty-sources-hash> <maven-repository-hash> [...]" >&2
+      exit 1
+    fi
+
+    system="$1"
+    thirdparty_sources_hash="$2"
+    maven_repository_hash="$3"
+    shift 3
+
+    replace_hash "nix/packages/starrocks-thirdparty-sources.nix" "$system" "$thirdparty_sources_hash"
+    replace_hash "nix/packages/starrocks-maven-repository.nix" "$system" "$maven_repository_hash"
+  done
+
+  exit 0
+fi
+
 refresh_hash() {
   local attr="$1"
   local file="$2"
@@ -37,36 +75,34 @@ refresh_hash() {
     exit 1
   fi
 
-  SYSTEM="$system" HASH="$hash" perl -0pi -e '
-    my $system = $ENV{"SYSTEM"};
-    my $hash = $ENV{"HASH"};
-    s/(\Q$system\E = ")[^"]+(";)/$1$hash$2/;
-  ' "$file"
+  replace_hash "$file" "$system" "$hash"
 }
 
-refresh_hash \
-  "packages.x86_64-linux.starrocks-thirdparty-sources" \
-  "nix/packages/starrocks-thirdparty-sources.nix" \
-  "x86_64-linux"
+refresh_system() {
+  local system="$1"
 
-refresh_hash \
-  "packages.aarch64-linux.starrocks-thirdparty-sources" \
-  "nix/packages/starrocks-thirdparty-sources.nix" \
-  "aarch64-linux"
+  refresh_hash \
+    "packages.${system}.starrocks-thirdparty-sources" \
+    "nix/packages/starrocks-thirdparty-sources.nix" \
+    "$system"
 
-refresh_hash \
-  "packages.x86_64-linux.starrocks-maven-repository" \
-  "nix/packages/starrocks-maven-repository.nix" \
-  "x86_64-linux"
+  refresh_hash \
+    "packages.${system}.starrocks-maven-repository" \
+    "nix/packages/starrocks-maven-repository.nix" \
+    "$system"
+}
 
-refresh_hash \
-  "packages.aarch64-linux.starrocks-maven-repository" \
-  "nix/packages/starrocks-maven-repository.nix" \
-  "aarch64-linux"
+nix_attrs=()
+if [[ "$#" -eq 0 ]]; then
+  set -- x86_64-linux aarch64-linux
+fi
 
-nix build \
-  .#packages.x86_64-linux.starrocks-thirdparty-sources \
-  .#packages.aarch64-linux.starrocks-thirdparty-sources \
-  .#packages.x86_64-linux.starrocks-maven-repository \
-  .#packages.aarch64-linux.starrocks-maven-repository \
-  --no-link
+for system in "$@"; do
+  refresh_system "$system"
+  nix_attrs+=(
+    ".#packages.${system}.starrocks-thirdparty-sources"
+    ".#packages.${system}.starrocks-maven-repository"
+  )
+done
+
+nix build "${nix_attrs[@]}" --no-link

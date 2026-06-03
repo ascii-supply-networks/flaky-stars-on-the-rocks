@@ -1,10 +1,10 @@
 # Flaky Stars on the Rocks
 
-Nix flake for building and running StarRocks 3.5.17 in development and CI.
+Nix flake for building and running StarRocks in development and CI.
 
 ## What This Provides
 
-- `packages.x86_64-linux.starrocks`: StarRocks built from the `3.5.17` tag.
+- `packages.x86_64-linux.starrocks`: StarRocks built from the pinned source.
 - `packages.aarch64-linux.starrocks`: same build, for Linux ARM.
 - `nixosModules.starrocks`: NixOS module for FE and BE services.
 - `apps.<linux-system>.starrocks-single-node-vm`: single-node NixOS VM.
@@ -13,15 +13,19 @@ Nix flake for building and running StarRocks 3.5.17 in development and CI.
 - `devShells.<system>.default`: Linux and macOS shell with JDK 21, Maven,
   Python, and the StarRocks-matching Thrift 0.20 compiler.
 
-The StarRocks package is source-first. The flake fetches the StarRocks GitHub
-tag, vendors the upstream source archives and Maven inputs, builds StarRocks'
-native third-party tree, then builds FE and BE from source.
+The StarRocks package is source-first. The flake fetches the pinned StarRocks
+GitHub source, vendors the upstream source archives and Maven inputs, builds
+StarRocks' native third-party tree, then builds FE and BE from source.
 
 Maven inputs are just Java libraries needed during the FE build. The flake does
 not use StarRocks release tarballs or release build artifacts.
 
-The default build and runtime JDK is OpenJDK 21. StarRocks 3.5 requires JDK 17
-or newer, and the NixOS module lets you override `services.starrocks.jdk`.
+The current source pin targets StarRocks PR
+[`#74009`](https://github.com/StarRocks/starrocks/pull/74009) through the
+`geoHeil/starrocks` PR branch so the full build can test that branch end to end.
+
+The default build and runtime JDK is OpenJDK 21. StarRocks requires JDK 17 or
+newer, and the NixOS module lets you override `services.starrocks.jdk`.
 
 ## Quick Start
 
@@ -142,6 +146,10 @@ The default build flags are `--cores 16 --max-jobs 1`. The StarRocks build
 already fans out internally across `NIX_BUILD_CORES`; keep `NIX_MAX_JOBS=1`
 unless the runner has enough spare memory to run independent Nix builds at the
 same time.
+
+Before running `Build and Publish Cache`, run `Refresh fixed-output hashes` and
+merge the generated PR. The package build intentionally fails early while the
+vendored third-party and Maven hashes are still `lib.fakeHash`.
 
 The shared setup action installs Nix with `cachix/install-nix-action`, configures
 Cachix when a cache name is provided, and then starts Magic Nix Cache. This keeps
