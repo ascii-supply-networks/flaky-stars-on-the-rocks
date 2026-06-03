@@ -135,6 +135,9 @@ stdenv.mkDerivation {
     cp -R ${starrocks-thirdparty-sources}/src thirdparty/src
     chmod -R u+w thirdparty
     patchShebangs thirdparty/src
+    substituteInPlace thirdparty/src/abseil-cpp-20220623.0/absl/container/internal/container_memory.h \
+      --replace-fail '#include "absl/utility/utility.h"' '#include "absl/utility/utility.h"
+    #include <cstdint>'
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
