@@ -98,10 +98,12 @@ stdenv.mkDerivation {
     substituteInPlace thirdparty/vars.sh \
       --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}'
     substituteInPlace thirdparty/build-thirdparty.sh \
-      --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
-      --replace-fail '    check_if_source_exist $JDK_SOURCE
-    rm -rf $TP_INSTALL_DIR/open_jdk && cp -r $TP_SOURCE_DIR/$JDK_SOURCE $TP_INSTALL_DIR/open_jdk' '    rm -rf $TP_INSTALL_DIR/open_jdk
-    ln -s ${jdk} $TP_INSTALL_DIR/open_jdk'
+      --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}'
+    perl -0pi -e '
+      our $replaced;
+      $replaced += s@build_jdk\(\) \{\n\s*check_if_source_exist \$JDK_SOURCE\n\s*rm -rf \$TP_INSTALL_DIR/open_jdk && cp -r \$TP_SOURCE_DIR/\$JDK_SOURCE \$TP_INSTALL_DIR/open_jdk\n\}@build_jdk() {\n    rm -rf \$TP_INSTALL_DIR/open_jdk\n    ln -s ${jdk} \$TP_INSTALL_DIR/open_jdk\n}@;
+      END { die "failed to patch build_jdk\n" unless $replaced }
+    ' thirdparty/build-thirdparty.sh
   '';
 
   buildPhase = ''
