@@ -140,7 +140,7 @@ stdenv.mkDerivation {
     #include <cstdint>'
     substituteInPlace thirdparty/build-thirdparty.sh \
       --replace-fail 'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g ' \
-        'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g -Wno-array-bounds -Wno-error=array-bounds '
+        'export CXXFLAGS="-O3 -fno-omit-frame-pointer -fPIC -g -Wno-array-bounds -Wno-error=array-bounds -Wno-stringop-overflow -Wno-error=stringop-overflow '
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
