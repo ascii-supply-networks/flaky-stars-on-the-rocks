@@ -120,6 +120,7 @@ stdenv.mkDerivation {
     rm -rf thirdparty/src
     cp -R ${starrocks-thirdparty-sources}/src thirdparty/src
     chmod -R u+w thirdparty
+    patchShebangs thirdparty/src
 
     export STARROCKS_HOME=$PWD
     export STARROCKS_GCC_HOME=${stdenv.cc}
