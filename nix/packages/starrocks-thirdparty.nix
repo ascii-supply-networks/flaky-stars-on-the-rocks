@@ -100,7 +100,8 @@ stdenv.mkDerivation {
   postPatch = ''
     patchShebangs thirdparty
     substituteInPlace thirdparty/vars.sh \
-      --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}'
+      --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
+      --replace-fail 'BREAK_PAD HADOOPSRC JDK RAGEL HYPERSCAN' 'BREAK_PAD HADOOPSRC RAGEL HYPERSCAN'
     substituteInPlace thirdparty/build-thirdparty.sh \
       --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}'
     perl -0pi -e '
