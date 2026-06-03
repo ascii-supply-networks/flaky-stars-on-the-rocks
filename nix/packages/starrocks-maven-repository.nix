@@ -81,25 +81,40 @@ stdenvNoCC.mkDerivation {
     ${setupMavenJavaHome}
 
     install_dummy_artifact() {
-      local artifact="$1"
-      local version="$2"
-      local artifact_dir="$out/.m2/com/starrocks/$artifact/$version"
+      local group="$1"
+      local artifact="$2"
+      local version="$3"
+      local group_path="''${group//./\/}"
+      local artifact_dir="$out/.m2/$group_path/$artifact/$version"
 
       mkdir -p "$artifact_dir"
       : > "$artifact_dir/$artifact-$version.jar"
       printf '%s\n' \
         '<project xmlns="http://maven.apache.org/POM/4.0.0">' \
         '  <modelVersion>4.0.0</modelVersion>' \
-        '  <groupId>com.starrocks</groupId>' \
+        "  <groupId>$group</groupId>" \
         "  <artifactId>$artifact</artifactId>" \
         "  <version>$version</version>" \
         '</project>' \
         > "$artifact_dir/$artifact-$version.pom"
     }
 
-    install_dummy_artifact plugin-common 1.0.0
-    install_dummy_artifact fe-common 1.0.0
-    install_dummy_artifact spark-dpp 1.0.0
+    fe_project_version="$(sed -n 's/^[[:space:]]*<version>\([^<]*\)<\/version>.*/\1/p' fe/pom.xml | head -n 1)"
+    for artifact in \
+      fe-grammar \
+      fe-type \
+      fe-parser \
+      fe-spi \
+      fe-utils \
+      fe-testing \
+      spark-dpp \
+      hive-udf \
+      fe-core \
+      fe-server; do
+      install_dummy_artifact com.starrocks "$artifact" "$fe_project_version"
+    done
+
+    install_dummy_artifact com.jcraft jsch.agentproxy 0.0.9
 
     mvn_common=(
       -B
