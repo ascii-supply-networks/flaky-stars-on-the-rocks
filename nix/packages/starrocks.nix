@@ -42,6 +42,7 @@
   xz,
   zip,
   libaio,
+  libiberty,
   libxcrypt,
   ncurses,
   openssl,
@@ -133,6 +134,7 @@ stdenv.mkDerivation {
 
   buildInputs = [
     libaio
+    libiberty
     libxcrypt
     ncurses
     jdk
@@ -142,12 +144,33 @@ stdenv.mkDerivation {
     zstd
   ];
 
+  dontConfigure = true;
+
   postPatch = ''
     patchShebangs .
+    substituteInPlace be/src/base/hash/hash.h \
+      --replace-fail '#include <cstdint>' '#include <cstdint>
+    #include <zlib.h>'
+    substituteInPlace be/src/formats/parquet/parquet_file_writer.h \
+      --replace-fail 'inline static std::string VERSION = "version";' 'inline static std::string VERSION_KEY = "version";'
+    substituteInPlace be/src/formats/parquet/parquet_file_writer.cpp \
+      --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
+    substituteInPlace be/src/exec/data_sinks/table_function_table_sink.cpp \
+      --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
     substituteInPlace build.sh \
       --replace-fail 'FE_MODULES="plugin/hive-udf,fe-testing,plugin/spark-dpp,fe-server"' 'FE_MODULES="fe-server"' \
       --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
       --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/hive-udf/target/hive-udf-*.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
+    for pom in \
+      fe/fe-core/pom.xml \
+      fe/fe-parser/pom.xml \
+      fe/fe-testing/pom.xml \
+      fe/plugin/spark-dpp/pom.xml \
+      java-extensions/pom.xml
+    do
+      substituteInPlace "$pom" \
+        --replace-fail '<phase>validate</phase>' '<phase>none</phase>'
+    done
   '';
 
   buildPhase = ''
@@ -167,7 +190,7 @@ stdenv.mkDerivation {
     export STARROCKS_GCC_HOME=${stdenv.cc}
     export CUSTOM_CMAKE=${cmake}/bin/cmake
     ${setupMavenJavaHome}
-    export CUSTOM_MVN="mvn -o -nsu -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.repo.local=$PWD/.m2"
+    export CUSTOM_MVN="mvn -o -nsu -Dcheckstyle.skip=true -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.repo.local=$PWD/.m2"
     export PARALLEL=''${NIX_BUILD_CORES:-1}
 
     export ENABLE_JIT=OFF
@@ -216,6 +239,7 @@ stdenv.mkDerivation {
 
       chmod -R u+rwX $out/share/starrocks
       patchShebangs $out/share/starrocks
+      rm -f $out/share/starrocks/be/lib/starrocks_be.debuginfo
 
       makeWrapper $out/share/starrocks/fe/bin/start_fe.sh $out/bin/starrocks-fe \
         --set-default JAVA_HOME ${jdk} \
