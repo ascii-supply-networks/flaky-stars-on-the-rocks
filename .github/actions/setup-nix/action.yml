@@ -27,6 +27,7 @@ runs:
       with:
         name: ${{ inputs.cachix-cache-name }}
         authToken: ${{ inputs.cachix-auth-token }}
+        skipPush: true
 
     - name: Setup Magic Nix Cache
       uses: DeterminateSystems/magic-nix-cache-action@v14

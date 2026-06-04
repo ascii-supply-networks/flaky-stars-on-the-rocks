@@ -105,11 +105,18 @@ jobs:
             "result-${{ matrix.system }}-starrocks"
 
           if [[ "$PUBLISH_CACHE" == "true" ]]; then
-            nix path-info --recursive \
+            store_paths=()
+            for out_link in \
               "result-${{ matrix.system }}-thirdparty-sources" \
               "result-${{ matrix.system }}-maven-repository" \
               "result-${{ matrix.system }}-thirdparty" \
-              "result-${{ matrix.system }}-starrocks" \
+              "result-${{ matrix.system }}-starrocks"
+            do
+              store_paths+=("$(readlink -f "$out_link")")
+            done
+
+            nix path-info --recursive "${store_paths[@]}" \
+              | sort -u \
               | cachix push "$CACHIX_CACHE_NAME"
           fi
 
