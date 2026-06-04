@@ -84,30 +84,34 @@ jobs:
             --max-jobs "$NIX_MAX_JOBS"
           )
 
-          build_and_maybe_push() {
+          build_package() {
             local attr="$1"
             local out_link="$2"
 
             nix build "$attr" "${nix_build_flags[@]}" --out-link "$out_link"
-
-            if [[ "$PUBLISH_CACHE" == "true" ]]; then
-              nix path-info --recursive "$(readlink "$out_link")" \
-                | cachix push "$CACHIX_CACHE_NAME"
-            fi
           }
 
-          build_and_maybe_push \
+          build_package \
             ".#packages.${{ matrix.system }}.starrocks-thirdparty-sources" \
             "result-${{ matrix.system }}-thirdparty-sources"
-          build_and_maybe_push \
+          build_package \
             ".#packages.${{ matrix.system }}.starrocks-maven-repository" \
             "result-${{ matrix.system }}-maven-repository"
-          build_and_maybe_push \
+          build_package \
             ".#packages.${{ matrix.system }}.starrocks-thirdparty" \
             "result-${{ matrix.system }}-thirdparty"
-          build_and_maybe_push \
+          build_package \
             ".#packages.${{ matrix.system }}.starrocks" \
             "result-${{ matrix.system }}-starrocks"
+
+          if [[ "$PUBLISH_CACHE" == "true" ]]; then
+            nix path-info --recursive \
+              "result-${{ matrix.system }}-thirdparty-sources" \
+              "result-${{ matrix.system }}-maven-repository" \
+              "result-${{ matrix.system }}-thirdparty" \
+              "result-${{ matrix.system }}-starrocks" \
+              | cachix push "$CACHIX_CACHE_NAME"
+          fi
 
       - name: Run VM integration checks
         if: env.RUN_VM_CHECKS == 'true'

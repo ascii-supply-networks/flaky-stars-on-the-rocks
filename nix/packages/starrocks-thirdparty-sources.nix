@@ -32,7 +32,7 @@ let
 
   hashes = {
     x86_64-linux = "sha256-vJ7QQ3fvpUBchEHrprRK3lnLhtfLCA1Fh8wOOzzNW60=";
-    aarch64-linux = "sha256-UEvUP+lJHuh8UImJ0HDB+LcBIzQ6fEgUBBDK7pmYS0Q=";
+    aarch64-linux = "sha256-RNivb9RfyEgmpiQSZ0SoP3BfaOPErzMGjqsJs5hOp3o=";
   };
 
   awsCrtArchives =

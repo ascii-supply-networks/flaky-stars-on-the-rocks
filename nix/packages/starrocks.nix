@@ -206,6 +206,7 @@ stdenv.mkDerivation {
       --without-tenann \
       --without-starcache \
       --without-java-ext \
+      --without-pch \
       --disable-java-check-style \
       --with-maven-batch-mode ON
 
