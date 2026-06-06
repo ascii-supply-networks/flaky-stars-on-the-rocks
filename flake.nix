@@ -13,6 +13,7 @@
       packageSystems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
       ];
       devSystems = [
         "x86_64-linux"
@@ -43,6 +44,7 @@
         starrocks-single-node = "x86_64-linux";
         starrocks-single-node-aarch64 = "aarch64-linux";
       };
+      vmSystems = lib.attrValues singleNodeSystems;
 
       singleNodeConfigNames = {
         x86_64-linux = "starrocks-single-node";
@@ -100,7 +102,7 @@
         pkgs:
         let
           system = pkgs.stdenv.hostPlatform.system;
-          configName = singleNodeConfigNames.${system};
+          configName = singleNodeConfigNames.${system} or null;
         in
         {
           default = pkgs.starrocks;
@@ -108,11 +110,13 @@
           starrocks-maven-repository = pkgs.starrocks-maven-repository;
           starrocks-thirdparty = pkgs.starrocks-thirdparty;
           starrocks-thirdparty-sources = pkgs.starrocks-thirdparty-sources;
+        }
+        // lib.optionalAttrs (configName != null) {
           starrocks-single-node-vm = self.nixosConfigurations.${configName}.config.system.build.vm;
         }
       );
 
-      apps = forSystems packageSystems (
+      apps = forSystems vmSystems (
         pkgs:
         let
           system = pkgs.stdenv.hostPlatform.system;
@@ -156,7 +160,7 @@
 
       nixosConfigurations = lib.mapAttrs (_name: system: mkSingleNodeConfig system) singleNodeSystems;
 
-      checks = forSystems packageSystems (pkgs: {
+      checks = forSystems vmSystems (pkgs: {
         starrocks-single-node = import ./nix/tests/starrocks-single-node.nix {
           inherit pkgs;
           starrocksModule = self.nixosModules.starrocks;

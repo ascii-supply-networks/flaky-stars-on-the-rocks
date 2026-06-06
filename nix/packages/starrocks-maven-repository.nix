@@ -21,6 +21,7 @@ let
   hashes = {
     x86_64-linux = "sha256-daj/ixY5PCD70qHXiXyMm4fXBhxEl5DKCW3kyxRTSbQ=";
     aarch64-linux = "sha256-RfdKwkIdG94ytMm58xuzNCMFGGFhzODrg7D4xampHYc=";
+    aarch64-darwin = "sha256-A3ZGPnc6LRwtxoEguB2ro7mJSkD19fU3UqU+fsa7oVY=";
   };
   setupMavenJavaHome = ''
     real_java_home="$(${jdk}/bin/java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.home = //p')"
@@ -152,8 +153,7 @@ stdenvNoCC.mkDerivation {
 
   outputHashMode = "recursive";
   outputHash =
-    hashes.${system}
-      or (throw "StarRocks Maven repository vendoring is supported only on Linux, got ${system}");
+    hashes.${system} or (throw "StarRocks Maven repository vendoring is not supported on ${system}");
 
   meta = {
     description = "Vendored Maven repository for native StarRocks builds";
@@ -162,6 +162,7 @@ stdenvNoCC.mkDerivation {
     platforms = [
       "x86_64-linux"
       "aarch64-linux"
+      "aarch64-darwin"
     ];
   };
 }

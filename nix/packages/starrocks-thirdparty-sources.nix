@@ -26,13 +26,14 @@ let
     {
       x86_64-linux = "x86_64";
       aarch64-linux = "aarch64";
+      aarch64-darwin = "aarch64";
     }
-    .${system}
-      or (throw "StarRocks third-party source vendoring is supported only on Linux, got ${system}");
+    .${system} or (throw "StarRocks third-party source vendoring is not supported on ${system}");
 
   hashes = {
     x86_64-linux = "sha256-vJ7QQ3fvpUBchEHrprRK3lnLhtfLCA1Fh8wOOzzNW60=";
     aarch64-linux = "sha256-RNivb9RfyEgmpiQSZ0SoP3BfaOPErzMGjqsJs5hOp3o=";
+    aarch64-darwin = "sha256-edXHFQFOgINAjnmQHqc7CzwM9D5sSKTO49aeeYH/ArU=";
   };
 
   awsCrtArchives =
@@ -153,6 +154,9 @@ stdenvNoCC.mkDerivation {
     substituteInPlace vars.sh \
       --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
       --replace-fail 'BREAK_PAD HADOOPSRC JDK RAGEL HYPERSCAN' 'BREAK_PAD HADOOPSRC RAGEL HYPERSCAN'
+    ${lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
+      export STARROCKS_TP_VARS_OVERRIDE=$PWD/vars-darwin-aarch64.sh
+    ''}
 
     export STARROCKS_AWS_CRT_ARCHIVES_DIR=$TMPDIR/aws-crt-archives
     mkdir -p "$STARROCKS_AWS_CRT_ARCHIVES_DIR"
@@ -182,6 +186,7 @@ stdenvNoCC.mkDerivation {
     platforms = [
       "x86_64-linux"
       "aarch64-linux"
+      "aarch64-darwin"
     ];
   };
 }

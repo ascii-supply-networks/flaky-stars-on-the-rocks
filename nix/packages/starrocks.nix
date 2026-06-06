@@ -14,16 +14,20 @@
   byacc,
   cmake,
   coreutils,
+  curl,
   findutils,
   flex,
   gawk,
   gettext,
+  getopt,
   gnumake,
   gnugrep,
   gnused,
   gnutar,
   gzip,
+  icu,
   libtool,
+  llvmPackages,
   maven,
   ninja,
   openjdk21,
@@ -31,6 +35,7 @@
   patch,
   perl,
   pkg-config,
+  pcre2,
   procps,
   protobuf,
   python3,
@@ -54,6 +59,8 @@
 
 let
   release = import ../starrocks-release.nix;
+  isDarwin = stdenv.hostPlatform.isDarwin;
+  isLinux = stdenv.hostPlatform.isLinux;
   setupMavenJavaHome = ''
     real_java_home="$(${jdk}/bin/java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.home = //p')"
     fake_java_parent="$TMPDIR/fake-java"
@@ -92,57 +99,66 @@ stdenv.mkDerivation {
     hash = release.sourceHash;
   };
 
-  nativeBuildInputs = [
-    autoPatchelfHook
-    autoconf
-    automake
-    bash
-    binutils
-    bison
-    bzip2
-    byacc
-    cmake
-    coreutils
-    findutils
-    flex
-    gawk
-    gettext
-    gnumake
-    gnugrep
-    gnused
-    gnutar
-    gzip
-    libtool
-    makeWrapper
-    maven
-    ninja
-    jdk
-    patch
-    perl
-    pkg-config
-    procps
-    protobuf
-    python3
-    thrift
-    unzip
-    util-linux
-    wget
-    which
-    xz
-    zip
-  ];
+  nativeBuildInputs =
+    lib.optionals isLinux [
+      autoPatchelfHook
+      procps
+      util-linux
+    ]
+    ++ [
+      autoconf
+      automake
+      bash
+      binutils
+      bison
+      bzip2
+      byacc
+      cmake
+      coreutils
+      findutils
+      flex
+      gawk
+      gettext
+      getopt
+      gnumake
+      gnugrep
+      gnused
+      gnutar
+      gzip
+      libtool
+      makeWrapper
+      maven
+      ninja
+      jdk
+      patch
+      perl
+      pkg-config
+      protobuf
+      python3
+      thrift
+      unzip
+      wget
+      which
+      xz
+      zip
+    ];
 
-  buildInputs = [
-    libaio
-    libiberty
-    libxcrypt
-    ncurses
-    jdk
-    openssl
-    stdenv.cc.cc.lib
-    zlib
-    zstd
-  ];
+  buildInputs =
+    lib.optionals isLinux [
+      libaio
+      libiberty
+      libxcrypt
+    ]
+    ++ [
+      ncurses
+      jdk
+      openssl
+      stdenv.cc.cc.lib
+      zlib
+      zstd
+    ];
+
+  __noChroot = isDarwin;
 
   dontConfigure = true;
 
@@ -151,16 +167,99 @@ stdenv.mkDerivation {
     substituteInPlace be/src/base/hash/hash.h \
       --replace-fail '#include <cstdint>' '#include <cstdint>
     #include <zlib.h>'
+    substituteInPlace be/src/gutil/port.h \
+      --replace-fail '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN
+// using the above endian defintions from endian.h if
+// endian.h was included
+#ifdef __BYTE_ORDER
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define IS_LITTLE_ENDIAN
+#endif
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define IS_BIG_ENDIAN
+#endif
+
+#else
+
+#if defined(__LITTLE_ENDIAN__)
+#define IS_LITTLE_ENDIAN
+#elif defined(__BIG_ENDIAN__)
+#define IS_BIG_ENDIAN
+#endif
+
+// there is also PDP endian ...
+
+#endif // __BYTE_ORDER' '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN.
+// Some third-party headers, including CRoaring, also define these names. Keep
+// StarRocks marker semantics by clearing inherited definitions before setting
+// the byte-order marker for this translation unit.
+#undef IS_LITTLE_ENDIAN
+#undef IS_BIG_ENDIAN
+
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define IS_LITTLE_ENDIAN
+#elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define IS_BIG_ENDIAN
+#elif defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && (__BYTE_ORDER == __LITTLE_ENDIAN)
+#define IS_LITTLE_ENDIAN
+#elif defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && (__BYTE_ORDER == __BIG_ENDIAN)
+#define IS_BIG_ENDIAN
+#elif defined(__LITTLE_ENDIAN__)
+#define IS_LITTLE_ENDIAN
+#elif defined(__BIG_ENDIAN__)
+#define IS_BIG_ENDIAN
+#endif'
+    substituteInPlace be/src/base/types/uint24.h \
+      --replace-fail 'static_cast<uint>(*this) >> bits' 'static_cast<uint32_t>(*this) >> bits'
     substituteInPlace be/src/formats/parquet/parquet_file_writer.h \
       --replace-fail 'inline static std::string VERSION = "version";' 'inline static std::string VERSION_KEY = "version";'
     substituteInPlace be/src/formats/parquet/parquet_file_writer.cpp \
       --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
     substituteInPlace be/src/exec/data_sinks/table_function_table_sink.cpp \
       --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
+    substituteInPlace be/src/service/CMakeLists.txt \
+      --replace-fail '    target_link_libraries(starrocks_be
+        ServiceBE
+        Service
+        ''${STARROCKS_LINK_LIBS}
+        )
+    STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)' '    target_link_libraries(starrocks_be
+        ServiceBE
+        Service
+        ''${STARROCKS_LINK_LIBS}
+        )
+    if (APPLE)
+        # Darwin lacks GNU linker groups, and CMake appends some static target
+        # dependencies after STARROCKS_LINK_LIBS. Force-load the Boost archives
+        # that satisfy late Avro and RuntimeEnv references.
+        target_link_options(starrocks_be PRIVATE
+            "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_thread.a"
+            "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_iostreams.a"
+        )
+        target_link_libraries(starrocks_be "${xz.out}/lib/liblzma.dylib")
+    endif()
+    STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)'
     substituteInPlace build.sh \
       --replace-fail 'FE_MODULES="plugin/hive-udf,fe-testing,plugin/spark-dpp,fe-server"' 'FE_MODULES="fe-server"' \
       --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
       --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/hive-udf/target/hive-udf-*.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
+    substituteInPlace build-support/darwin_build_env.sh \
+      --replace-fail '# Parallel builds
+export PARALLEL="$(detect_parallelism)"
+export MAKEFLAGS="-j''${PARALLEL}"
+
+log_info "Parallel jobs: $PARALLEL"' '# Parallel builds
+if [[ -n "''${NIX_BUILD_CORES:-}" && "''${NIX_BUILD_CORES}" =~ ^[0-9]+$ && "''${NIX_BUILD_CORES}" -gt 0 ]]; then
+    export PARALLEL="''${NIX_BUILD_CORES}"
+elif [[ -n "''${PARALLEL:-}" && "''${PARALLEL}" =~ ^[0-9]+$ && "''${PARALLEL}" -gt 0 ]]; then
+    export PARALLEL
+else
+    export PARALLEL="$(detect_parallelism)"
+fi
+export MAKEFLAGS="-j''${PARALLEL}"
+
+log_info "Parallel jobs: $PARALLEL"'
     for pom in \
       fe/fe-core/pom.xml \
       fe/fe-parser/pom.xml \
@@ -178,6 +277,43 @@ stdenv.mkDerivation {
 
     export HOME=$TMPDIR/home
     mkdir -p "$HOME"
+    ${lib.optionalString isDarwin ''
+      make_combined_root() {
+        local root="$1"
+        shift
+
+        rm -rf "$root"
+        mkdir -p "$root"
+
+        for input in "$@"; do
+          for dir in bin include lib share; do
+            if [[ ! -d "$input/$dir" ]]; then
+              continue
+            fi
+            mkdir -p "$root/$dir"
+            for entry in "$input/$dir"/*; do
+              [[ -e "$entry" ]] || continue
+              ln -sfn "$entry" "$root/$dir/$(basename "$entry")"
+            done
+          done
+        done
+      }
+
+      make_combined_root "$PWD/nix-openssl-root" "${openssl.dev}" "${openssl.out}"
+      make_combined_root "$PWD/nix-curl-root" "${curl.dev}" "${curl.out}"
+      make_combined_root "$PWD/nix-icu-root" "${icu.dev}" "${icu.out}"
+      make_combined_root "$PWD/nix-pcre2-root" "${pcre2.dev}" "${pcre2.out}"
+
+      export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+      export HOMEBREW_NO_AUTO_UPDATE=1
+      export STARROCKS_USE_NIX_DEPS=1
+      export STARROCKS_LLVM_HOME=${llvmPackages.llvm}
+      export LLVM_HOME=${llvmPackages.llvm}
+      export OPENSSL_ROOT_DIR="$PWD/nix-openssl-root"
+      export CURL_ROOT="$PWD/nix-curl-root"
+      export ICU_ROOT="$PWD/nix-icu-root"
+      export PCRE2_ROOT_DIR="$PWD/nix-pcre2-root"
+    ''}
 
     cp -R ${starrocks-maven-repository}/.m2 .m2
     chmod -R u+w .m2
@@ -191,7 +327,7 @@ stdenv.mkDerivation {
     export CUSTOM_CMAKE=${cmake}/bin/cmake
     ${setupMavenJavaHome}
     export CUSTOM_MVN="mvn -o -nsu -Dcheckstyle.skip=true -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.repo.local=$PWD/.m2"
-    export PARALLEL=''${NIX_BUILD_CORES:-1}
+    export PARALLEL=${if isDarwin then "6" else "''${NIX_BUILD_CORES:-1}"}
 
     export ENABLE_JIT=OFF
     export USE_AVX2=OFF
@@ -202,6 +338,7 @@ stdenv.mkDerivation {
     ./build.sh \
       --fe \
       --be \
+      -j "$PARALLEL" \
       --without-avx2 \
       --without-tenann \
       --without-starcache \
@@ -215,17 +352,23 @@ stdenv.mkDerivation {
 
   installPhase =
     let
-      runtimePath = lib.makeBinPath [
-        bash
-        coreutils
-        findutils
-        gawk
-        gnugrep
-        gnused
-        jdk
-        procps
-        util-linux
-      ];
+      runtimePath =
+        lib.makeBinPath [
+          bash
+          coreutils
+          findutils
+          gawk
+          gnugrep
+          gnused
+          jdk
+        ]
+        + lib.optionalString isLinux (
+          ":"
+          + lib.makeBinPath [
+            procps
+            util-linux
+          ]
+        );
     in
     ''
       runHook preInstall
@@ -332,6 +475,7 @@ stdenv.mkDerivation {
     platforms = [
       "x86_64-linux"
       "aarch64-linux"
+      "aarch64-darwin"
     ];
     sourceProvenance = with lib.sourceTypes; [ fromSource ];
   };

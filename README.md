@@ -1,50 +1,79 @@
 # Flaky Stars on the Rocks
 
-Nix flake for building and running StarRocks in development and CI.
+Native Nix packaging for StarRocks.
 
-## What This Provides
+This is a build and cache layer, not a replacement for StarRocks' canonical
+Docker development environment. It builds the pinned StarRocks source for Linux,
+provides a NixOS module, and publishes reusable binary cache closures to Cachix.
 
-- `packages.x86_64-linux.starrocks`: StarRocks built from the pinned source.
-- `packages.aarch64-linux.starrocks`: same build, for Linux ARM.
-- `nixosModules.starrocks`: NixOS module for FE and BE services.
-- `apps.<linux-system>.starrocks-single-node-vm`: single-node NixOS VM.
-- `checks.<linux-system>.starrocks-single-node`: one FE and one BE.
-- `checks.<linux-system>.starrocks-multinode`: one FE and two BEs.
-- `devShells.<system>.default`: Linux and macOS shell with JDK 21, Maven,
-  Python, and the StarRocks-matching Thrift 0.20 compiler.
+## Outputs
 
-The StarRocks package is source-first. The flake fetches the pinned StarRocks
-GitHub source, vendors the upstream source archives and Maven inputs, builds
-StarRocks' native third-party tree, then builds FE and BE from source.
+- `packages.<linux>.starrocks`: FE and BE server package.
+- `packages.<linux>.starrocks-thirdparty`: StarRocks native third-party tree.
+- `packages.<linux>.starrocks-thirdparty-sources`: vendored source archives.
+- `packages.<linux>.starrocks-maven-repository`: vendored Maven repository.
+- `nixosModules.starrocks`: FE/BE service module.
+- `checks.<linux>.starrocks-single-node`: one FE and one BE.
+- `checks.<linux>.starrocks-multinode`: one FE and two BEs.
+- `devShells.<system>.default`: Linux and macOS development shell.
 
-Maven inputs are just Java libraries needed during the FE build. The flake does
-not use StarRocks release tarballs or release build artifacts.
+Package systems are `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin`. The
+NixOS VM outputs are Linux-only.
 
-The current source pin targets StarRocks PR
-[`#74009`](https://github.com/StarRocks/starrocks/pull/74009) through the
-`geoHeil/starrocks` PR branch so the full build can test that branch end to end.
+## Approach
 
-The default build and runtime JDK is OpenJDK 21. StarRocks requires JDK 17 or
-newer, and the NixOS module lets you override `services.starrocks.jdk`.
+The package is source-first:
 
-## Quick Start
+1. Fetch the pinned StarRocks Git revision from `nix/starrocks-release.nix`.
+2. Vendor upstream third-party source archives in a fixed-output derivation.
+3. Vendor Maven dependencies in a fixed-output derivation.
+4. Build StarRocks' native third-party tree.
+5. Build the FE and BE server package.
+6. Push the build closures to Cachix from CI.
 
-Enter the flake dev shell:
+This is not fully hermetic. StarRocks' upstream build still drives a large
+third-party build and Maven dependency resolution. Nix pins the source tree,
+captures the downloaded third-party and Maven inputs with fixed-output hashes,
+and then builds from those pinned inputs. Updating the StarRocks revision can
+therefore require refreshing hashes and adjusting compatibility patches.
+
+The package does not use StarRocks release tarballs or prebuilt StarRocks
+artifacts.
+
+## Build
+
+Use the Cachix cache first:
+
+```sh
+cachix use starrocks
+```
+
+Or pass it for one command:
+
+```sh
+nix build .#starrocks -L \
+  --extra-substituters https://starrocks.cachix.org \
+  --extra-trusted-public-keys starrocks.cachix.org-1:78NUWchpR2PhVdikbBgZyo/sh07cZCU7eOgQMzdKgNQ=
+```
+
+Then build or enter the shell:
 
 ```sh
 nix develop
+nix build .#starrocks -L
 ```
 
-Or let direnv load it when you enter the checkout:
+On macOS arm64, publish the server package and development closures with:
 
 ```sh
-direnv allow
+STARROCKS_CACHIX_TOKEN=... just publish-darwin-aarch
 ```
 
-Build the package:
+On macOS with Docker, refresh the Linux fixed-output hashes in Linux
+containers:
 
 ```sh
-nix build .#starrocks
+just refresh-linux-hashes-docker
 ```
 
 Run the single-node VM on Linux:
@@ -53,7 +82,7 @@ Run the single-node VM on Linux:
 nix run .#starrocks-single-node-vm
 ```
 
-Run the smoke checks:
+Run smoke checks:
 
 ```sh
 nix build .#checks.x86_64-linux.starrocks-single-node -L
@@ -62,14 +91,9 @@ nix build .#checks.aarch64-linux.starrocks-single-node -L
 nix build .#checks.aarch64-linux.starrocks-multinode -L
 ```
 
-On macOS, use the dev shell for source work. The FE Java modules build there,
-but the full FE+BE server package and VM checks are Linux-only. StarRocks'
-BE code still assumes Linux APIs and Linux shared-library layout.
+## NixOS Module
 
-## Single Node
-
-Single node means one FE and one BE on the same NixOS host. This is the default
-module shape.
+Single node:
 
 ```nix
 {
@@ -82,80 +106,38 @@ module shape.
 }
 ```
 
-For one-BE tables, use `replication_num = "1"`.
+For one-BE tables, set `replication_num = "1"`.
 
-## Multinode
+## Updating StarRocks
 
-Multinode means one FE host and one or more separate BE hosts.
+1. Edit `nix/starrocks-release.nix`.
+2. Run the `Refresh fixed-output hashes` workflow.
+3. Merge the generated hash PR.
+4. Run `Build and Publish Cache`.
+5. Fix package patches if the vendored third-party layout changed.
 
-FE host:
+The main version knobs are already centralized in `nix/starrocks-release.nix`.
+The remaining hashes are derivation-specific because they differ by system and
+by vendoring step.
 
-```nix
-{
-  imports = [ inputs.flaky-stars-on-the-rocks.nixosModules.starrocks ];
+## CI and Cache
 
-  services.starrocks = {
-    enable = true;
-    openFirewall = true;
-    be.enable = false;
-  };
-}
-```
+`CI` checks formatting, evaluates all flake outputs, and dry-runs the Linux
+package plans.
 
-BE host:
+`Build and Publish Cache` builds `x86_64-linux` and `aarch64-linux` on
+organization GitHub-hosted runners. It publishes only through the explicit
+post-build `cachix push`; automatic Cachix push is disabled.
 
-```nix
-{
-  imports = [ inputs.flaky-stars-on-the-rocks.nixosModules.starrocks ];
+Required GitHub Environment: `publish-nix`
 
-  services.starrocks = {
-    enable = true;
-    openFirewall = true;
-    fe.enable = false;
+- Variable: `CACHIX_CACHE_NAME`
+- Secret: `CACHIX_AUTH_TOKEN`
 
-    be.instances."0" = {
-      feHost = "starrocks-fe.internal";
-      advertiseHost = "starrocks-be-1.internal";
-    };
-  };
-}
-```
+Runner labels:
 
-Use more BE hosts by repeating the BE config with a different `advertiseHost`.
-For two BE hosts, tables can use `replication_num = "2"`.
+- `x86-xlarge` in group `ascii-rs`
+- `aarch-xlarge` in group `Default`
 
-## CI
-
-The main workflow installs Nix, enables the GitHub Actions backed Nix cache,
-checks formatting, evaluates every flake output, and dry-runs both Linux package
-plans.
-
-The `Build and Publish Cache` workflow performs the native Linux package builds
-on main-branch pushes and by manual dispatch. It runs on organization
-GitHub-hosted larger runners and can push the build closures to Cachix.
-Provision hosted runners with these names and runner groups:
-
-- x86_64 runner: label `x86-xlarge`, group `ascii-rs`
-- aarch64 runner: label `aarch-xlarge`, group `Default`
-
-Create the GitHub Environment `publish-nix` and configure:
-
-- Environment variable `CACHIX_CACHE_NAME`: Cachix cache name.
-- Environment secret `CACHIX_AUTH_TOKEN`: Cachix auth token with push access.
-
-The default build flags are `--cores 16 --max-jobs 1`. The StarRocks build
-already fans out internally across `NIX_BUILD_CORES`; keep `NIX_MAX_JOBS=1`
-unless the runner has enough spare memory to run independent Nix builds at the
-same time.
-
-Before relying on `Build and Publish Cache`, run `Refresh fixed-output hashes`
-and merge the generated PR. The package build intentionally fails early while
-the vendored third-party and Maven hashes are still `lib.fakeHash`.
-
-The shared setup action installs Nix with `cachix/install-nix-action`, configures
-Cachix when a cache name is provided, and then starts Magic Nix Cache with
-FlakeHub disabled. Cachix is the binary cache publication path; Magic Nix Cache is
-only used for GitHub Actions cache reuse.
-
-The fixed-output hashes for third-party source vendoring and Maven vendoring are
-refreshed by the manual `Refresh fixed-output hashes` workflow.
+The workflow uses `--cores 16 --max-jobs 1`. StarRocks fans out internally, so
+running multiple Nix builds in parallel is usually worse for memory pressure.
