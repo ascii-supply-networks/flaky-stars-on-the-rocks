@@ -82,7 +82,11 @@ Run the single-node VM on Linux:
 nix run .#starrocks-single-node-vm
 ```
 
-Run smoke checks:
+Run smoke checks on Linux:
+
+The `checks.<linux>.*` outputs are NixOS VM tests. They cannot run directly on
+Darwin. From macOS, configure a remote Linux builder or run the checks on a
+Linux machine:
 
 ```sh
 nix build .#checks.x86_64-linux.starrocks-single-node -L
