@@ -61,6 +61,7 @@ let
   release = import ../starrocks-release.nix;
   isDarwin = stdenv.hostPlatform.isDarwin;
   isLinux = stdenv.hostPlatform.isLinux;
+  linuxParallel = "\${NIX_BUILD_CORES:-1}";
   setupMavenJavaHome = ''
     real_java_home="$(${jdk}/bin/java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.home = //p')"
     fake_java_parent="$TMPDIR/fake-java"
@@ -163,113 +164,113 @@ stdenv.mkDerivation {
   dontConfigure = true;
 
   postPatch = ''
-    patchShebangs .
-    substituteInPlace be/src/base/hash/hash.h \
-      --replace-fail '#include <cstdint>' '#include <cstdint>
-    #include <zlib.h>'
-    substituteInPlace be/src/gutil/port.h \
-      --replace-fail '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN
-// using the above endian defintions from endian.h if
-// endian.h was included
-#ifdef __BYTE_ORDER
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define IS_LITTLE_ENDIAN
-#endif
+        patchShebangs .
+        substituteInPlace be/src/base/hash/hash.h \
+          --replace-fail '#include <cstdint>' '#include <cstdint>
+        #include <zlib.h>'
+        substituteInPlace be/src/gutil/port.h \
+          --replace-fail '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN
+    // using the above endian defintions from endian.h if
+    // endian.h was included
+    #ifdef __BYTE_ORDER
+    #if __BYTE_ORDER == __LITTLE_ENDIAN
+    #define IS_LITTLE_ENDIAN
+    #endif
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define IS_BIG_ENDIAN
-#endif
+    #if __BYTE_ORDER == __BIG_ENDIAN
+    #define IS_BIG_ENDIAN
+    #endif
 
-#else
+    #else
 
-#if defined(__LITTLE_ENDIAN__)
-#define IS_LITTLE_ENDIAN
-#elif defined(__BIG_ENDIAN__)
-#define IS_BIG_ENDIAN
-#endif
+    #if defined(__LITTLE_ENDIAN__)
+    #define IS_LITTLE_ENDIAN
+    #elif defined(__BIG_ENDIAN__)
+    #define IS_BIG_ENDIAN
+    #endif
 
-// there is also PDP endian ...
+    // there is also PDP endian ...
 
-#endif // __BYTE_ORDER' '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN.
-// Some third-party headers, including CRoaring, also define these names. Keep
-// StarRocks marker semantics by clearing inherited definitions before setting
-// the byte-order marker for this translation unit.
-#undef IS_LITTLE_ENDIAN
-#undef IS_BIG_ENDIAN
+    #endif // __BYTE_ORDER' '// define the macros IS_LITTLE_ENDIAN or IS_BIG_ENDIAN.
+    // Some third-party headers, including CRoaring, also define these names. Keep
+    // StarRocks marker semantics by clearing inherited definitions before setting
+    // the byte-order marker for this translation unit.
+    #undef IS_LITTLE_ENDIAN
+    #undef IS_BIG_ENDIAN
 
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define IS_LITTLE_ENDIAN
-#elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#define IS_BIG_ENDIAN
-#elif defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define IS_LITTLE_ENDIAN
-#elif defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && (__BYTE_ORDER == __BIG_ENDIAN)
-#define IS_BIG_ENDIAN
-#elif defined(__LITTLE_ENDIAN__)
-#define IS_LITTLE_ENDIAN
-#elif defined(__BIG_ENDIAN__)
-#define IS_BIG_ENDIAN
-#endif'
-    substituteInPlace be/src/base/types/uint24.h \
-      --replace-fail 'static_cast<uint>(*this) >> bits' 'static_cast<uint32_t>(*this) >> bits'
-    substituteInPlace be/src/formats/parquet/parquet_file_writer.h \
-      --replace-fail 'inline static std::string VERSION = "version";' 'inline static std::string VERSION_KEY = "version";'
-    substituteInPlace be/src/formats/parquet/parquet_file_writer.cpp \
-      --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
-    substituteInPlace be/src/exec/data_sinks/table_function_table_sink.cpp \
-      --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
-    substituteInPlace be/src/service/CMakeLists.txt \
-      --replace-fail '    target_link_libraries(starrocks_be
-        ServiceBE
-        Service
-        ''${STARROCKS_LINK_LIBS}
-        )
-    STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)' '    target_link_libraries(starrocks_be
-        ServiceBE
-        Service
-        ''${STARROCKS_LINK_LIBS}
-        )
-    if (APPLE)
-        # Darwin lacks GNU linker groups, and CMake appends some static target
-        # dependencies after STARROCKS_LINK_LIBS. Force-load the Boost archives
-        # that satisfy late Avro and RuntimeEnv references.
-        target_link_options(starrocks_be PRIVATE
-            "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_thread.a"
-            "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_iostreams.a"
-        )
-        target_link_libraries(starrocks_be "${xz.out}/lib/liblzma.dylib")
-    endif()
-    STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)'
-    substituteInPlace build.sh \
-      --replace-fail 'FE_MODULES="plugin/hive-udf,fe-testing,plugin/spark-dpp,fe-server"' 'FE_MODULES="fe-server"' \
-      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
-      --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/hive-udf/target/hive-udf-*.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
-    substituteInPlace build-support/darwin_build_env.sh \
-      --replace-fail '# Parallel builds
-export PARALLEL="$(detect_parallelism)"
-export MAKEFLAGS="-j''${PARALLEL}"
-
-log_info "Parallel jobs: $PARALLEL"' '# Parallel builds
-if [[ -n "''${NIX_BUILD_CORES:-}" && "''${NIX_BUILD_CORES}" =~ ^[0-9]+$ && "''${NIX_BUILD_CORES}" -gt 0 ]]; then
-    export PARALLEL="''${NIX_BUILD_CORES}"
-elif [[ -n "''${PARALLEL:-}" && "''${PARALLEL}" =~ ^[0-9]+$ && "''${PARALLEL}" -gt 0 ]]; then
-    export PARALLEL
-else
+    #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+    #define IS_LITTLE_ENDIAN
+    #elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    #define IS_BIG_ENDIAN
+    #elif defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && (__BYTE_ORDER == __LITTLE_ENDIAN)
+    #define IS_LITTLE_ENDIAN
+    #elif defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && (__BYTE_ORDER == __BIG_ENDIAN)
+    #define IS_BIG_ENDIAN
+    #elif defined(__LITTLE_ENDIAN__)
+    #define IS_LITTLE_ENDIAN
+    #elif defined(__BIG_ENDIAN__)
+    #define IS_BIG_ENDIAN
+    #endif'
+        substituteInPlace be/src/base/types/uint24.h \
+          --replace-fail 'static_cast<uint>(*this) >> bits' 'static_cast<uint32_t>(*this) >> bits'
+        substituteInPlace be/src/formats/parquet/parquet_file_writer.h \
+          --replace-fail 'inline static std::string VERSION = "version";' 'inline static std::string VERSION_KEY = "version";'
+        substituteInPlace be/src/formats/parquet/parquet_file_writer.cpp \
+          --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
+        substituteInPlace be/src/exec/data_sinks/table_function_table_sink.cpp \
+          --replace-fail 'ParquetWriterOptions::VERSION' 'ParquetWriterOptions::VERSION_KEY'
+        substituteInPlace be/src/service/CMakeLists.txt \
+          --replace-fail '    target_link_libraries(starrocks_be
+            ServiceBE
+            Service
+            ''${STARROCKS_LINK_LIBS}
+            )
+        STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)' '    target_link_libraries(starrocks_be
+            ServiceBE
+            Service
+            ''${STARROCKS_LINK_LIBS}
+            )
+        if (APPLE)
+            # Darwin lacks GNU linker groups, and CMake appends some static target
+            # dependencies after STARROCKS_LINK_LIBS. Force-load the Boost archives
+            # that satisfy late Avro and RuntimeEnv references.
+            target_link_options(starrocks_be PRIVATE
+                "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_thread.a"
+                "LINKER:-force_load,''${THIRDPARTY_DIR}/lib/libboost_iostreams.a"
+            )
+            target_link_libraries(starrocks_be "${xz.out}/lib/liblzma.dylib")
+        endif()
+        STARROCKS_FORCE_LOAD_LIBS(starrocks_be Exprs ExprCore)'
+        substituteInPlace build.sh \
+          --replace-fail 'FE_MODULES="plugin/hive-udf,fe-testing,plugin/spark-dpp,fe-server"' 'FE_MODULES="fe-server"' \
+          --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/spark-dpp/target/spark-dpp-*-jar-with-dependencies.jar ''${STARROCKS_OUTPUT}/fe/spark-dpp/' 'true # Spark DPP is not part of the Nix FE/BE server package.' \
+          --replace-fail 'cp -r -p ''${STARROCKS_HOME}/fe/plugin/hive-udf/target/hive-udf-*.jar ''${STARROCKS_OUTPUT}/fe/hive-udf/' 'true # Hive UDF is not part of the Nix FE/BE server package.'
+        substituteInPlace build-support/darwin_build_env.sh \
+          --replace-fail '# Parallel builds
     export PARALLEL="$(detect_parallelism)"
-fi
-export MAKEFLAGS="-j''${PARALLEL}"
+    export MAKEFLAGS="-j''${PARALLEL}"
 
-log_info "Parallel jobs: $PARALLEL"'
-    for pom in \
-      fe/fe-core/pom.xml \
-      fe/fe-parser/pom.xml \
-      fe/fe-testing/pom.xml \
-      fe/plugin/spark-dpp/pom.xml \
-      java-extensions/pom.xml
-    do
-      substituteInPlace "$pom" \
-        --replace-fail '<phase>validate</phase>' '<phase>none</phase>'
-    done
+    log_info "Parallel jobs: $PARALLEL"' '# Parallel builds
+    if [[ -n "''${NIX_BUILD_CORES:-}" && "''${NIX_BUILD_CORES}" =~ ^[0-9]+$ && "''${NIX_BUILD_CORES}" -gt 0 ]]; then
+        export PARALLEL="''${NIX_BUILD_CORES}"
+    elif [[ -n "''${PARALLEL:-}" && "''${PARALLEL}" =~ ^[0-9]+$ && "''${PARALLEL}" -gt 0 ]]; then
+        export PARALLEL
+    else
+        export PARALLEL="$(detect_parallelism)"
+    fi
+    export MAKEFLAGS="-j''${PARALLEL}"
+
+    log_info "Parallel jobs: $PARALLEL"'
+        for pom in \
+          fe/fe-core/pom.xml \
+          fe/fe-parser/pom.xml \
+          fe/fe-testing/pom.xml \
+          fe/plugin/spark-dpp/pom.xml \
+          java-extensions/pom.xml
+        do
+          substituteInPlace "$pom" \
+            --replace-fail '<phase>validate</phase>' '<phase>none</phase>'
+        done
   '';
 
   buildPhase = ''
@@ -327,7 +328,7 @@ log_info "Parallel jobs: $PARALLEL"'
     export CUSTOM_CMAKE=${cmake}/bin/cmake
     ${setupMavenJavaHome}
     export CUSTOM_MVN="mvn -o -nsu -Dcheckstyle.skip=true -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.repo.local=$PWD/.m2"
-    export PARALLEL=${if isDarwin then "6" else "''${NIX_BUILD_CORES:-1}"}
+    export PARALLEL=${if isDarwin then "6" else linuxParallel}
 
     export ENABLE_JIT=OFF
     export USE_AVX2=OFF
