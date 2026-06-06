@@ -41,7 +41,7 @@ jobs:
 
   refresh-aarch:
     runs-on:
-      group: Default
+      group: ascii-rs
       labels: aarch-xlarge
     timeout-minutes: 360
     outputs:

@@ -45,7 +45,7 @@ jobs:
             runner_group: ascii-rs
             runner_label: x86-xlarge
           - system: aarch64-linux
-            runner_group: Default
+            runner_group: ascii-rs
             runner_label: aarch-xlarge
 
     steps:
