@@ -24,6 +24,7 @@
   gnused,
   gnutar,
   gzip,
+  krb5,
   libtool,
   llvmPackages,
   maven,
@@ -228,190 +229,185 @@ stdenv.mkDerivation {
     ''}
     patchShebangs thirdparty/src
     ${lib.optionalString isDarwin ''
-            for file in \
-              thirdparty/src/brpc-1.9.0/src/butil/file_util_mac.mm \
-              thirdparty/src/brpc-1.9.0/src/butil/mac/bundle_locations.h \
-              thirdparty/src/brpc-1.9.0/src/butil/mac/foundation_util.h \
-              thirdparty/src/brpc-1.9.0/src/butil/memory/singleton_objc.h \
-              thirdparty/src/brpc-1.9.0/src/butil/strings/sys_string_conversions_mac.mm \
-              thirdparty/src/brpc-1.9.0/src/butil/threading/platform_thread_mac.mm
-            do
-              substituteInPlace "$file" \
-                --replace-fail '#import <Foundation/Foundation.h>' '#include <sys/_types.h>
-            #ifndef _UUID_STRING_T
-            #define _UUID_STRING_T
-            typedef __darwin_uuid_string_t uuid_string_t;
-            #endif
-            #import <Foundation/Foundation.h>'
-            done
-            substituteInPlace thirdparty/src/brpc-1.9.0/src/butil/mac/foundation_util.h \
-              --replace-fail '#include <ApplicationServices/ApplicationServices.h>' '#include <sys/_types.h>
-            #ifndef _UUID_STRING_T
-            #define _UUID_STRING_T
-            typedef __darwin_uuid_string_t uuid_string_t;
-            #endif
-            #include <ApplicationServices/ApplicationServices.h>'
-            perl -0pi -e '
-              our $replaced;
-              $replaced += s/\bu_int\b/unsigned int/g;
-              END { die "failed to patch Darwin brpc flat_map unsigned type\n" unless $replaced == 6 }
-            ' \
-              thirdparty/src/brpc-1.9.0/src/butil/containers/flat_map.h \
-              thirdparty/src/brpc-1.9.0/src/butil/containers/flat_map_inl.h
-            substituteInPlace thirdparty/src/starrocks-clucene-2026.04.09/src/shared/CLucene/LuceneThreads.h \
-              --replace-fail '#define  _LuceneThreads_h
-
-
-      CL_NS_DEF(util)' '#define  _LuceneThreads_h
-
-      #if defined(_CL_HAVE_PTHREAD)
-      #include <pthread.h>
-      #endif
-
-      CL_NS_DEF(util)'
+                for file in \
+                  thirdparty/src/brpc-1.9.0/src/butil/file_util_mac.mm \
+                  thirdparty/src/brpc-1.9.0/src/butil/mac/bundle_locations.h \
+                  thirdparty/src/brpc-1.9.0/src/butil/mac/foundation_util.h \
+                  thirdparty/src/brpc-1.9.0/src/butil/memory/singleton_objc.h \
+                  thirdparty/src/brpc-1.9.0/src/butil/strings/sys_string_conversions_mac.mm \
+                  thirdparty/src/brpc-1.9.0/src/butil/threading/platform_thread_mac.mm
+                do
+                  substituteInPlace "$file" \
+                    --replace-fail '#import <Foundation/Foundation.h>' '#include <sys/_types.h>
+                #ifndef _UUID_STRING_T
+                #define _UUID_STRING_T
+                typedef __darwin_uuid_string_t uuid_string_t;
+                #endif
+                #import <Foundation/Foundation.h>'
+                done
+                substituteInPlace thirdparty/src/brpc-1.9.0/src/butil/mac/foundation_util.h \
+                  --replace-fail '#include <ApplicationServices/ApplicationServices.h>' '#include <sys/_types.h>
+                #ifndef _UUID_STRING_T
+                #define _UUID_STRING_T
+                typedef __darwin_uuid_string_t uuid_string_t;
+                #endif
+                #include <ApplicationServices/ApplicationServices.h>'
                 perl -0pi -e '
                   our $replaced;
-                  $replaced += s@ensure_formula\(\) \{\n    local formula="\$1"\n    if ! brew list --formula "\$\{formula\}" >/dev/null 2>&1; then\n        brew install "\$\{formula\}"\n    fi\n\}@ensure_formula() {\n    :\n}@;
-                  END { die "failed to patch Darwin Homebrew installer\n" unless $replaced }
-                ' thirdparty/build-thirdparty-darwin.sh
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail 'brew --prefix "$1"' 'printf "%s\n" "''${HOMEBREW_PREFIX:-/opt/homebrew}/opt/$1"'
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_gtest\(\) \{\n    ensure_formula googletest\n    local prefix\n    prefix="\$\(formula_prefix googletest\)"\n    link_children_if_missing "\$\{prefix\}/include" "\$\{TP_INCLUDE_DIR\}"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libgtest\*.a" "\$\{prefix\}/lib/libgmock\*.a" "\$\{prefix\}/lib/libgtest\*.dylib" "\$\{prefix\}/lib/libgmock\*.dylib"\n    sync_lib64_links\n\}@build_formula_gtest() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$GTEST_SOURCE"\n        cd "\$TP_SOURCE_DIR/\$GTEST_SOURCE"\n        rm -rf "\$BUILD_DIR"\n        mkdir -p "\$BUILD_DIR"\n        cd "\$BUILD_DIR"\n        "\$CMAKE_CMD" -G "\$CMAKE_GENERATOR" \\\n            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \\\n            -DCMAKE_INSTALL_PREFIX="\$TP_INSTALL_DIR" \\\n            -DCMAKE_INSTALL_LIBDIR=lib \\\n            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \\\n            -DBUILD_GMOCK=ON \\\n            -DBUILD_GTEST=ON \\\n            ..\n        "\$BUILD_SYSTEM" -j"\$PARALLEL"\n        "\$BUILD_SYSTEM" install\n        if [[ ! -f "\$TP_INCLUDE_DIR/gtest/gtest_prod.h" ]]; then\n            echo "gtest header missing after source install: \$TP_INCLUDE_DIR/gtest/gtest_prod.h"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/lib/libgtest.a" ]]; then\n            echo "gtest static library missing after source install: \$TP_INSTALL_DIR/lib/libgtest.a"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/lib/libgmock.a" ]]; then\n            echo "gmock static library missing after source install: \$TP_INSTALL_DIR/lib/libgmock.a"\n            exit 1\n        fi\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula googletest\n    local prefix\n    prefix="\$(formula_prefix googletest)"\n    link_children_if_missing "\''${prefix}/include" "\''${TP_INCLUDE_DIR}"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libgtest*.a" "\''${prefix}/lib/libgmock*.a" "\''${prefix}/lib/libgtest*.dylib" "\''${prefix}/lib/libgmock*.dylib"\n    sync_lib64_links\n}@;
-                    END { die "failed to patch Darwin gtest source build\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    s@(-DCMAKE_INSTALL_LIBDIR=lib \\\n)(            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \\\n            -DBUILD_GMOCK=ON)@$1            -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-copy" \\\n$2@ or die "failed to patch Darwin gtest warning flags\n";
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail '        local bshuf_cflags="-I./src -I./lz4 -I''${TP_INCLUDE_DIR}/lz4 -std=c99 -O3 -DNDEBUG -fPIC"
-
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} -c src/bitshuffle_core.c -o bitshuffle_core.o
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} -c src/bitshuffle.c -o bitshuffle.o
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} -c src/iochain.c -o iochain.o' '        local bshuf_cflags="-I./src -I./lz4 -I''${TP_INCLUDE_DIR}/lz4 -std=c99 -O3 -DNDEBUG -fPIC"
-              local rename_header=""
-              if [[ "''${arch}" == "neon" ]]; then
-                  if [[ ! -f bitshuffle_default.o ]]; then
-                      echo "bitshuffle default object missing before NEON symbol rename"
-                      exit 1
-                  fi
-                  "''${NM_BIN}" -gU bitshuffle_default.o \
-                      | awk "{ name=\$3; sub(/^_/, \"\", name); if (name != \"\") print \"#define \" name \" \" name \"_neon\" }" \
-                      > renames_neon.h
-                  rename_header="-include ''${PWD}/renames_neon.h"
-              fi
-
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/bitshuffle_core.c -o bitshuffle_core.o
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/bitshuffle.c -o bitshuffle.o
-              "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/iochain.c -o iochain.o'
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail '            "''${OBJCOPY}" --redefine-syms=renames.txt "''${tmp_obj}" "''${dst_obj}"' '            mv "''${tmp_obj}" "''${dst_obj}"'
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail '        to_link="''${to_link} ''${dst_obj}"' '        if [[ "''${arch}" == "neon" ]]; then
-                  if ! otool -hv "''${dst_obj}" | grep -q "MH_MAGIC_64"; then
-                      echo "bitshuffle NEON object is not a 64-bit Mach-O object"
-                      exit 1
-                  fi
-                  if ! "''${NM_BIN}" -gU "''${dst_obj}" | grep -q "_bshuf_compress_lz4_neon"; then
-                      echo "bitshuffle NEON symbols missing after compile-time rename"
-                      exit 1
-                  fi
-              fi
-
-              to_link="''${to_link} ''${dst_obj}"'
-                  perl -0pi -e '
-                    our $replaced;
-                  $replaced += s@build_formula_rapidjson\(\) \{\n    ensure_formula rapidjson\n    local prefix\n    prefix="\$\(formula_prefix rapidjson\)"\n    link_if_missing "\$\{prefix\}/include/rapidjson" "\$\{TP_INCLUDE_DIR\}/rapidjson"\n    link_formula_metadata "\$\{prefix\}"\n\}@build_formula_rapidjson() {\n    ensure_formula rapidjson\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$RAPIDJSON_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/rapidjson"\n        cp -R "\$TP_SOURCE_DIR/\$RAPIDJSON_SOURCE/include/rapidjson" "\$TP_INCLUDE_DIR/rapidjson"\n        if [[ ! -f "\$TP_INCLUDE_DIR/rapidjson/rapidjson.h" ]]; then\n            echo "RapidJSON header missing after source install: \$TP_INCLUDE_DIR/rapidjson/rapidjson.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix rapidjson)"\n    link_if_missing "\''${prefix}/include/rapidjson" "\''${TP_INCLUDE_DIR}/rapidjson"\n    link_formula_metadata "\''${prefix}"\n}@;
-                    END { die "failed to patch Darwin rapidjson source install\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_fast_float\(\) \{\n    ensure_formula fast_float\n    local prefix\n    prefix="\$\(formula_prefix fast_float\)"\n    link_if_missing "\$\{prefix\}/include/fast_float" "\$\{TP_INCLUDE_DIR\}/fast_float"\n\}@build_formula_fast_float() {\n    ensure_formula fast_float\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$FAST_FLOAT_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/fast_float"\n        cp -R "\$TP_SOURCE_DIR/\$FAST_FLOAT_SOURCE/include/fast_float" "\$TP_INCLUDE_DIR/fast_float"\n        if [[ ! -f "\$TP_INCLUDE_DIR/fast_float/fast_float.h" ]]; then\n            echo "fast_float header missing after source install: \$TP_INCLUDE_DIR/fast_float/fast_float.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix fast_float)"\n    link_if_missing "\''${prefix}/include/fast_float" "\''${TP_INCLUDE_DIR}/fast_float"\n}@;
-                    END { die "failed to patch Darwin fast_float source install\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_opentelemetry\(\) \{\n    ensure_formula opentelemetry-cpp\n    local prefix\n    prefix="\$\(formula_prefix opentelemetry-cpp\)"\n    link_children_if_missing "\$\{prefix\}/include" "\$\{TP_INCLUDE_DIR\}"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libopentelemetry"\*.a "\$\{prefix\}/lib/libopentelemetry"\*.dylib\n    link_formula_metadata "\$\{prefix\}"\n    sync_lib64_links\n\}@build_formula_opentelemetry() {\n    ensure_formula opentelemetry-cpp\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$OPENTELEMETRY_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/opentelemetry"\n        cp -R "\$TP_SOURCE_DIR/\$OPENTELEMETRY_SOURCE/api/include/opentelemetry" "\$TP_INCLUDE_DIR/opentelemetry"\n        if [[ ! -f "\$TP_INCLUDE_DIR/opentelemetry/common/attribute_value.h" ]]; then\n            echo "OpenTelemetry header missing after source install: \$TP_INCLUDE_DIR/opentelemetry/common/attribute_value.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix opentelemetry-cpp)"\n    link_children_if_missing "\''${prefix}/include" "\''${TP_INCLUDE_DIR}"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libopentelemetry"*.a "\''${prefix}/lib/libopentelemetry"*.dylib\n    link_formula_metadata "\''${prefix}"\n    sync_lib64_links\n}@;
-                    END { die "failed to patch Darwin OpenTelemetry source install\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_sasl\(\) \{\n    ensure_formula cyrus-sasl\n    local prefix\n    prefix="\$\(formula_prefix cyrus-sasl\)"\n    link_if_missing "\$\{prefix\}/include/sasl" "\$\{TP_INCLUDE_DIR\}/sasl"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libsasl2\.a" "\$\{prefix\}/lib/libsasl2\*\.dylib"\n    link_formula_metadata "\$\{prefix\}"\n    sync_lib64_links\n\}@build_formula_sasl() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        link_if_missing "${cyrus_sasl.dev}/include/sasl" "\$TP_INCLUDE_DIR/sasl"\n        link_matching_if_missing "\$TP_INSTALL_DIR/lib" "${cyrus_sasl.out}/lib/libsasl2*.dylib"\n        link_children_if_missing "${cyrus_sasl.out}/lib/sasl2" "\$TP_INSTALL_DIR/lib/sasl2"\n        link_formula_metadata "${cyrus_sasl.dev}"\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula cyrus-sasl\n    local prefix\n    prefix="\$(formula_prefix cyrus-sasl)"\n    link_if_missing "\''${prefix}/include/sasl" "\''${TP_INCLUDE_DIR}/sasl"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libsasl2.a" "\''${prefix}/lib/libsasl2*.dylib"\n    link_formula_metadata "\''${prefix}"\n    sync_lib64_links\n}@;
-                    END { die "failed to patch Darwin cyrus-sasl staging\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_gperftools\(\) \{\n    ensure_formula gperftools\n    local prefix\n    prefix="\$\(formula_prefix gperftools\)"\n    link_if_missing "\$\{prefix\}" "\$\{TP_INSTALL_DIR\}/gperftools"\n    link_children_if_missing "\$\{prefix\}/include/gperftools" "\$\{TP_INCLUDE_DIR\}/gperftools"\n\}@build_formula_gperftools() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        mkdir -p "\$TP_INSTALL_DIR/gperftools/lib" "\$TP_INSTALL_DIR/gperftools/include/gperftools" "\$TP_INCLUDE_DIR/gperftools"\n        link_children_if_missing "${gperftools}/include/gperftools" "\$TP_INSTALL_DIR/gperftools/include/gperftools"\n        link_children_if_missing "${gperftools}/include/gperftools" "\$TP_INCLUDE_DIR/gperftools"\n        link_matching_if_missing "\$TP_INSTALL_DIR/gperftools/lib" "${gperftools}/lib/libprofiler.a" "${gperftools}/lib/libprofiler"*.dylib\n        link_matching_if_missing "\$TP_INSTALL_DIR/lib" "${gperftools}/lib/libprofiler.a" "${gperftools}/lib/libprofiler"*.dylib\n        if [[ ! -f "\$TP_INSTALL_DIR/gperftools/lib/libprofiler.a" ]]; then\n            echo "gperftools libprofiler.a missing after Nix staging"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/gperftools/include/gperftools/profiler.h" ]]; then\n            echo "gperftools profiler.h missing after Nix staging"\n            exit 1\n        fi\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula gperftools\n    local prefix\n    prefix="\$(formula_prefix gperftools)"\n    link_if_missing "\''${prefix}" "\''${TP_INSTALL_DIR}/gperftools"\n    link_children_if_missing "\''${prefix}/include/gperftools" "\''${TP_INCLUDE_DIR}/gperftools"\n}@;
-                    END { die "failed to patch Darwin gperftools staging\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
-                  perl -0pi -e '
-                    our $replaced;
-                    $replaced += s@build_formula_ragel\(\) \{\n    ensure_formula ragel\n    local prefix\n    prefix="\$\(formula_prefix ragel\)"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/bin" "\$\{prefix\}/bin/ragel"\n\}@build_formula_ragel() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        if [[ -x "\$TP_INSTALL_DIR/bin/ragel" ]]; then\n            return 0\n        fi\n        check_if_source_exist "\$RAGEL_SOURCE"\n        cd "\$TP_SOURCE_DIR/\$RAGEL_SOURCE"\n        touch aclocal.m4 configure\n        find . -name Makefile.in -exec touch {} +\n        touch ragel/rlparse.cpp ragel/rlparse.h ragel/rlscan.cpp\n        if [[ -f Makefile ]]; then\n            make distclean >/dev/null 2>&1 || true\n        fi\n        ./configure --prefix="\$TP_INSTALL_DIR" --disable-shared --enable-static \\\n            CC="\$CC" CXX="\$CXX" CPPFLAGS="\$CPPFLAGS" CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS"\n        make -j"\$PARALLEL"\n        make install\n        return 0\n    fi\n    ensure_formula ragel\n    local prefix\n    prefix="\$(formula_prefix ragel)"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/bin" "\''${prefix}/bin/ragel"\n}@;
-                    END { die "failed to patch Darwin ragel source build\n" unless $replaced }
-                  ' thirdparty/build-thirdparty-darwin.sh
+                  $replaced += s/\bu_int\b/unsigned int/g;
+                  END { die "failed to patch Darwin brpc flat_map unsigned type\n" unless $replaced == 6 }
+                ' \
+                  thirdparty/src/brpc-1.9.0/src/butil/containers/flat_map.h \
+                  thirdparty/src/brpc-1.9.0/src/butil/containers/flat_map_inl.h
                 perl -0pi -e '
                   our $replaced;
-                  $replaced += s@setup_build_environment\(\) \{\n    local base_formula\n\n    for base_formula in coreutils gnu-tar wget gnu-getopt autoconf automake libtool cmake ninja bison pkg-config llvm; do\n        ensure_formula "\$\{base_formula\}"\n    done\n\n    export HOMEBREW_PREFIX=.*?\n    export STARROCKS_LLVM_HOME=.*?\n    export PATH=".*?"@setup_build_environment() {\n    export HOMEBREW_PREFIX="\''${HOMEBREW_PREFIX:-/opt/homebrew}"\n    export STARROCKS_LLVM_HOME="\''${STARROCKS_LLVM_HOME:-${llvmPackages.llvm}}"\n    export PATH="${
-                    lib.makeBinPath [
-                      coreutils
-                      gnutar
-                      wget
-                      autoconf
-                      automake
-                      libtool
-                      cmake
-                      ninja
-                      bison
-                      pkg-config
-                      llvmPackages.llvm
-                    ]
-                  }:\''${PATH}:/usr/bin:/usr/sbin:/bin:/sbin"@s;
-                  END { die "failed to patch Darwin setup_build_environment\n" unless $replaced }
-                ' thirdparty/build-thirdparty-darwin.sh
-                perl -0pi -e '
-                  our $replaced;
-                  $replaced += s@if ! command -v brew >/dev/null 2>&1; then\n    echo "Homebrew is required on macOS"\n    exit 1\nfi@:@;
-                  END { die "failed to patch Darwin Homebrew requirement\n" unless $replaced }
-                ' thirdparty/build-thirdparty-darwin.sh
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail 'export AR="''${AR:-''${STARROCKS_LLVM_HOME}/bin/llvm-ar}"' 'export AR="${darwinArWrapper}"' \
-                    --replace-fail 'export RANLIB="''${RANLIB:-''${STARROCKS_LLVM_HOME}/bin/llvm-ranlib}"' 'export RANLIB="${darwinRanlibWrapper}"'
-                  substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                    --replace-fail 'rapidjson_prefix="$(formula_prefix rapidjson)"' 'if [[ "$STARROCKS_USE_NIX_DEPS" == "1" ]]; then
-                rapidjson_prefix="$TP_INSTALL_DIR"
-                if [[ ! -f "$rapidjson_prefix/include/rapidjson/rapidjson.h" ]]; then
-                    echo "RapidJSON header missing before Arrow configure: $rapidjson_prefix/include/rapidjson/rapidjson.h"
-                    exit 1
-                fi
-            else
-                rapidjson_prefix="$(formula_prefix rapidjson)"
-            fi'
-                perl -0pi -e '
-                  our $replaced;
-                    $replaced += s#for package in "\$\{packages\[@\]\}"; do\n    if \[\[ "\$\{package\}" == "\$\{start_package\}" \]\]; then#for package in "\''${packages[@]}"; do\n    echo "===== begin Darwin thirdparty package: \$package"\n    if [[ "\$package" == "\$start_package" ]]; then#;
-                  END { die "failed to patch Darwin package progress marker\n" unless $replaced }
-                ' thirdparty/build-thirdparty-darwin.sh
-              perl -0pi -e '
-                our $replaced;
-                $replaced += s@check_if_source_exist "\$\{HYPERSCAN_SOURCE\}"\n    cd "\$\{TP_SOURCE_DIR\}/\$\{HYPERSCAN_SOURCE\}"\n    rm -rf cmake_build@check_if_source_exist "\$HYPERSCAN_SOURCE"\n    export PATH="\$TP_INSTALL_DIR/bin:\$PATH"\n    cd "\$TP_SOURCE_DIR/\$HYPERSCAN_SOURCE"\n    rm -rf cmake_build@;
-                END { die "failed to patch Darwin Hyperscan PATH\n" unless $replaced }
-              ' thirdparty/build-thirdparty-darwin.sh
-              perl -0pi -e '
-                our $replaced;
-                $replaced += s@    "\$\{OBJCOPY\}" --localize-symbol=cnd_timedwait "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"\n    "\$\{OBJCOPY\}" --localize-symbol=cnd_timedwait_ms "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"\n    "\$\{OBJCOPY\}" --localize-symbol=thrd_is_current "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"@    if [[ "\$STARROCKS_USE_NIX_DEPS" != "1" ]]; then\n        "\$OBJCOPY" --localize-symbol=cnd_timedwait "\$TP_INSTALL_DIR/lib/libserdes.a"\n        "\$OBJCOPY" --localize-symbol=cnd_timedwait_ms "\$TP_INSTALL_DIR/lib/libserdes.a"\n        "\$OBJCOPY" --localize-symbol=thrd_is_current "\$TP_INSTALL_DIR/lib/libserdes.a"\n    fi@;
-                END { die "failed to patch Darwin serdes objcopy\n" unless $replaced }
-              ' thirdparty/build-thirdparty-darwin.sh
-                substituteInPlace thirdparty/build-thirdparty-darwin.sh \
-                  --replace-fail '        -DRapidJSON_ROOT="''${rapidjson_prefix}" \' '        -DRapidJSON_ROOT="''${rapidjson_prefix}" \
-              -DRapidJSON_SOURCE=SYSTEM \'
+                  $replaced += s@(#define\s+_LuceneThreads_h\n+)(\s*CL_NS_DEF\(util\))@$1#if defined(_CL_HAVE_PTHREAD)\n#include <pthread.h>\n#endif\n\n$2@;
+                  END { die "failed to patch Darwin CLucene pthread include\n" unless $replaced }
+                ' thirdparty/src/starrocks-clucene-2026.04.09/src/shared/CLucene/LuceneThreads.h
+                    perl -0pi -e '
+                      our $replaced;
+                      $replaced += s@ensure_formula\(\) \{\n    local formula="\$1"\n    if ! brew list --formula "\$\{formula\}" >/dev/null 2>&1; then\n        brew install "\$\{formula\}"\n    fi\n\}@ensure_formula() {\n    :\n}@;
+                      END { die "failed to patch Darwin Homebrew installer\n" unless $replaced }
+                    ' thirdparty/build-thirdparty-darwin.sh
+                      substituteInPlace thirdparty/build-thirdparty-darwin.sh \
+                        --replace-fail 'brew --prefix "$1"' 'printf "%s\n" "''${HOMEBREW_PREFIX:-/opt/homebrew}/opt/$1"'
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_gtest\(\) \{\n    ensure_formula googletest\n    local prefix\n    prefix="\$\(formula_prefix googletest\)"\n    link_children_if_missing "\$\{prefix\}/include" "\$\{TP_INCLUDE_DIR\}"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libgtest\*.a" "\$\{prefix\}/lib/libgmock\*.a" "\$\{prefix\}/lib/libgtest\*.dylib" "\$\{prefix\}/lib/libgmock\*.dylib"\n    sync_lib64_links\n\}@build_formula_gtest() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$GTEST_SOURCE"\n        cd "\$TP_SOURCE_DIR/\$GTEST_SOURCE"\n        rm -rf "\$BUILD_DIR"\n        mkdir -p "\$BUILD_DIR"\n        cd "\$BUILD_DIR"\n        "\$CMAKE_CMD" -G "\$CMAKE_GENERATOR" \\\n            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \\\n            -DCMAKE_INSTALL_PREFIX="\$TP_INSTALL_DIR" \\\n            -DCMAKE_INSTALL_LIBDIR=lib \\\n            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \\\n            -DBUILD_GMOCK=ON \\\n            -DBUILD_GTEST=ON \\\n            ..\n        "\$BUILD_SYSTEM" -j"\$PARALLEL"\n        "\$BUILD_SYSTEM" install\n        if [[ ! -f "\$TP_INCLUDE_DIR/gtest/gtest_prod.h" ]]; then\n            echo "gtest header missing after source install: \$TP_INCLUDE_DIR/gtest/gtest_prod.h"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/lib/libgtest.a" ]]; then\n            echo "gtest static library missing after source install: \$TP_INSTALL_DIR/lib/libgtest.a"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/lib/libgmock.a" ]]; then\n            echo "gmock static library missing after source install: \$TP_INSTALL_DIR/lib/libgmock.a"\n            exit 1\n        fi\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula googletest\n    local prefix\n    prefix="\$(formula_prefix googletest)"\n    link_children_if_missing "\''${prefix}/include" "\''${TP_INCLUDE_DIR}"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libgtest*.a" "\''${prefix}/lib/libgmock*.a" "\''${prefix}/lib/libgtest*.dylib" "\''${prefix}/lib/libgmock*.dylib"\n    sync_lib64_links\n}@;
+                        END { die "failed to patch Darwin gtest source build\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        s@(-DCMAKE_INSTALL_LIBDIR=lib \\\n)(            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \\\n            -DBUILD_GMOCK=ON)@$1            -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-copy" \\\n$2@ or die "failed to patch Darwin gtest warning flags\n";
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        my $compile_patch = q~        local bshuf_cflags="-I./src -I./lz4 -I''${TP_INCLUDE_DIR}/lz4 -std=c99 -O3 -DNDEBUG -fPIC"
+      local rename_header=""
+      if [[ "''${arch}" == "neon" ]]; then
+          if [[ ! -f bitshuffle_default.o ]]; then
+              echo "bitshuffle default object missing before NEON symbol rename"
+              exit 1
+          fi
+          "''${NM_BIN}" -gU bitshuffle_default.o \
+              | awk "{ name=\$3; sub(/^_/, \"\", name); if (name != \"\") print \"#define \" name \" \" name \"_neon\" }" \
+              > renames_neon.h
+          rename_header="-include ''${PWD}/renames_neon.h"
+      fi
+
+      "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/bitshuffle_core.c -o bitshuffle_core.o
+      "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/bitshuffle.c -o bitshuffle.o
+      "''${CC}" ''${bshuf_cflags} ''${arch_flag} ''${rename_header} -c src/iochain.c -o iochain.o~;
+                        my $validation_patch = q~        if [[ "''${arch}" == "neon" ]]; then
+          if ! otool -hv "''${dst_obj}" | grep -q "MH_MAGIC_64"; then
+              echo "bitshuffle NEON object is not a 64-bit Mach-O object"
+              exit 1
+          fi
+          if ! "''${NM_BIN}" -gU "''${dst_obj}" | grep -q "_bshuf_compress_lz4_neon"; then
+              echo "bitshuffle NEON symbols missing after compile-time rename"
+              exit 1
+          fi
+      fi
+
+      to_link="''${to_link} ''${dst_obj}"~;
+                        my $move_patch = q~            mv "''${tmp_obj}" "''${dst_obj}"~;
+                        our $replaced;
+                        $replaced += s@[ \t]*local bshuf_cflags="-I\./src -I\./lz4 -I\$\{TP_INCLUDE_DIR\}/lz4 -std=c99 -O3 -DNDEBUG -fPIC"\n\n[ \t]*"\$\{CC\}" \$\{bshuf_cflags\} \$\{arch_flag\} -c src/bitshuffle_core\.c -o bitshuffle_core\.o\n[ \t]*"\$\{CC\}" \$\{bshuf_cflags\} \$\{arch_flag\} -c src/bitshuffle\.c -o bitshuffle\.o\n[ \t]*"\$\{CC\}" \$\{bshuf_cflags\} \$\{arch_flag\} -c src/iochain\.c -o iochain\.o@$compile_patch@;
+                        $replaced += s@[ \t]*"\$\{OBJCOPY\}" --redefine-syms=renames\.txt "\$\{tmp_obj\}" "\$\{dst_obj\}"@$move_patch@;
+                        $replaced += s@[ \t]*to_link="\$\{to_link\} \$\{dst_obj\}"@$validation_patch@;
+                        END { die "failed to patch Darwin bitshuffle NEON symbol handling\n" unless $replaced == 3 }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                      $replaced += s@build_formula_rapidjson\(\) \{\n    ensure_formula rapidjson\n    local prefix\n    prefix="\$\(formula_prefix rapidjson\)"\n    link_if_missing "\$\{prefix\}/include/rapidjson" "\$\{TP_INCLUDE_DIR\}/rapidjson"\n    link_formula_metadata "\$\{prefix\}"\n\}@build_formula_rapidjson() {\n    ensure_formula rapidjson\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$RAPIDJSON_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/rapidjson"\n        cp -R "\$TP_SOURCE_DIR/\$RAPIDJSON_SOURCE/include/rapidjson" "\$TP_INCLUDE_DIR/rapidjson"\n        if [[ ! -f "\$TP_INCLUDE_DIR/rapidjson/rapidjson.h" ]]; then\n            echo "RapidJSON header missing after source install: \$TP_INCLUDE_DIR/rapidjson/rapidjson.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix rapidjson)"\n    link_if_missing "\''${prefix}/include/rapidjson" "\''${TP_INCLUDE_DIR}/rapidjson"\n    link_formula_metadata "\''${prefix}"\n}@;
+                        END { die "failed to patch Darwin rapidjson source install\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_fast_float\(\) \{\n    ensure_formula fast_float\n    local prefix\n    prefix="\$\(formula_prefix fast_float\)"\n    link_if_missing "\$\{prefix\}/include/fast_float" "\$\{TP_INCLUDE_DIR\}/fast_float"\n\}@build_formula_fast_float() {\n    ensure_formula fast_float\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$FAST_FLOAT_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/fast_float"\n        cp -R "\$TP_SOURCE_DIR/\$FAST_FLOAT_SOURCE/include/fast_float" "\$TP_INCLUDE_DIR/fast_float"\n        if [[ ! -f "\$TP_INCLUDE_DIR/fast_float/fast_float.h" ]]; then\n            echo "fast_float header missing after source install: \$TP_INCLUDE_DIR/fast_float/fast_float.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix fast_float)"\n    link_if_missing "\''${prefix}/include/fast_float" "\''${TP_INCLUDE_DIR}/fast_float"\n}@;
+                        END { die "failed to patch Darwin fast_float source install\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_kerberos\(\) \{\n    ensure_formula krb5\n    local prefix\n    prefix="\$\(formula_prefix krb5\)"\n    link_if_missing "\$\{prefix\}/include/gssapi" "\$\{TP_INCLUDE_DIR\}/gssapi"\n    link_if_missing "\$\{prefix\}/include/krb5.h" "\$\{TP_INCLUDE_DIR\}/krb5.h"\n    link_if_missing "\$\{prefix\}/include/com_err.h" "\$\{TP_INCLUDE_DIR\}/com_err.h"\n    link_if_missing "\$\{prefix\}/include/profile.h" "\$\{TP_INCLUDE_DIR\}/profile.h"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/"\*.a "\$\{prefix\}/lib/"\*.dylib\n    link_formula_metadata "\$\{prefix\}"\n    sync_lib64_links\n\}@build_formula_kerberos() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        link_if_missing "${krb5.dev}/include/gssapi" "\$TP_INCLUDE_DIR/gssapi"\n        link_if_missing "${krb5.dev}/include/krb5.h" "\$TP_INCLUDE_DIR/krb5.h"\n        link_if_missing "${krb5.dev}/include/com_err.h" "\$TP_INCLUDE_DIR/com_err.h"\n        link_if_missing "${krb5.dev}/include/profile.h" "\$TP_INCLUDE_DIR/profile.h"\n        link_matching_if_missing "\$TP_INSTALL_DIR/lib" "${krb5.lib}/lib/"*.dylib\n        link_formula_metadata "${krb5.dev}"\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula krb5\n    local prefix\n    prefix="\$(formula_prefix krb5)"\n    link_if_missing "\''${prefix}/include/gssapi" "\''${TP_INCLUDE_DIR}/gssapi"\n    link_if_missing "\''${prefix}/include/krb5.h" "\''${TP_INCLUDE_DIR}/krb5.h"\n    link_if_missing "\''${prefix}/include/com_err.h" "\''${TP_INCLUDE_DIR}/com_err.h"\n    link_if_missing "\''${prefix}/include/profile.h" "\''${TP_INCLUDE_DIR}/profile.h"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/"*.a "\''${prefix}/lib/"*.dylib\n    link_formula_metadata "\''${prefix}"\n    sync_lib64_links\n}@;
+                        $replaced += s@build_formula_opentelemetry\(\) \{\n    ensure_formula opentelemetry-cpp\n    local prefix\n    prefix="\$\(formula_prefix opentelemetry-cpp\)"\n    link_children_if_missing "\$\{prefix\}/include" "\$\{TP_INCLUDE_DIR\}"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libopentelemetry"\*.a "\$\{prefix\}/lib/libopentelemetry"\*.dylib\n    link_formula_metadata "\$\{prefix\}"\n    sync_lib64_links\n\}@build_formula_opentelemetry() {\n    ensure_formula opentelemetry-cpp\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        check_if_source_exist "\$OPENTELEMETRY_SOURCE"\n        mkdir -p "\$TP_INCLUDE_DIR"\n        rm -rf "\$TP_INCLUDE_DIR/opentelemetry"\n        cp -R "\$TP_SOURCE_DIR/\$OPENTELEMETRY_SOURCE/api/include/opentelemetry" "\$TP_INCLUDE_DIR/opentelemetry"\n        if [[ ! -f "\$TP_INCLUDE_DIR/opentelemetry/common/attribute_value.h" ]]; then\n            echo "OpenTelemetry header missing after source install: \$TP_INCLUDE_DIR/opentelemetry/common/attribute_value.h"\n            exit 1\n        fi\n        return 0\n    fi\n    local prefix\n    prefix="\$(formula_prefix opentelemetry-cpp)"\n    link_children_if_missing "\''${prefix}/include" "\''${TP_INCLUDE_DIR}"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libopentelemetry"*.a "\''${prefix}/lib/libopentelemetry"*.dylib\n    link_formula_metadata "\''${prefix}"\n    sync_lib64_links\n}@;
+                        END { die "failed to patch Darwin krb5/OpenTelemetry source install\n" unless $replaced == 2 }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_sasl\(\) \{\n    ensure_formula cyrus-sasl\n    local prefix\n    prefix="\$\(formula_prefix cyrus-sasl\)"\n    link_if_missing "\$\{prefix\}/include/sasl" "\$\{TP_INCLUDE_DIR\}/sasl"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/lib" "\$\{prefix\}/lib/libsasl2\.a" "\$\{prefix\}/lib/libsasl2\*\.dylib"\n    link_formula_metadata "\$\{prefix\}"\n    sync_lib64_links\n\}@build_formula_sasl() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        link_if_missing "${cyrus_sasl.dev}/include/sasl" "\$TP_INCLUDE_DIR/sasl"\n        link_matching_if_missing "\$TP_INSTALL_DIR/lib" "${cyrus_sasl.out}/lib/libsasl2*.dylib"\n        link_children_if_missing "${cyrus_sasl.out}/lib/sasl2" "\$TP_INSTALL_DIR/lib/sasl2"\n        link_formula_metadata "${cyrus_sasl.dev}"\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula cyrus-sasl\n    local prefix\n    prefix="\$(formula_prefix cyrus-sasl)"\n    link_if_missing "\''${prefix}/include/sasl" "\''${TP_INCLUDE_DIR}/sasl"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/lib" "\''${prefix}/lib/libsasl2.a" "\''${prefix}/lib/libsasl2*.dylib"\n    link_formula_metadata "\''${prefix}"\n    sync_lib64_links\n}@;
+                        END { die "failed to patch Darwin cyrus-sasl staging\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_gperftools\(\) \{\n    ensure_formula gperftools\n    local prefix\n    prefix="\$\(formula_prefix gperftools\)"\n    link_if_missing "\$\{prefix\}" "\$\{TP_INSTALL_DIR\}/gperftools"\n    link_children_if_missing "\$\{prefix\}/include/gperftools" "\$\{TP_INCLUDE_DIR\}/gperftools"\n\}@build_formula_gperftools() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        mkdir -p "\$TP_INSTALL_DIR/gperftools/lib" "\$TP_INSTALL_DIR/gperftools/include/gperftools" "\$TP_INCLUDE_DIR/gperftools"\n        link_children_if_missing "${gperftools}/include/gperftools" "\$TP_INSTALL_DIR/gperftools/include/gperftools"\n        link_children_if_missing "${gperftools}/include/gperftools" "\$TP_INCLUDE_DIR/gperftools"\n        link_matching_if_missing "\$TP_INSTALL_DIR/gperftools/lib" "${gperftools}/lib/libprofiler.a" "${gperftools}/lib/libprofiler"*.dylib\n        link_matching_if_missing "\$TP_INSTALL_DIR/lib" "${gperftools}/lib/libprofiler.a" "${gperftools}/lib/libprofiler"*.dylib\n        if [[ ! -f "\$TP_INSTALL_DIR/gperftools/lib/libprofiler.a" ]]; then\n            echo "gperftools libprofiler.a missing after Nix staging"\n            exit 1\n        fi\n        if [[ ! -f "\$TP_INSTALL_DIR/gperftools/include/gperftools/profiler.h" ]]; then\n            echo "gperftools profiler.h missing after Nix staging"\n            exit 1\n        fi\n        sync_lib64_links\n        return 0\n    fi\n    ensure_formula gperftools\n    local prefix\n    prefix="\$(formula_prefix gperftools)"\n    link_if_missing "\''${prefix}" "\''${TP_INSTALL_DIR}/gperftools"\n    link_children_if_missing "\''${prefix}/include/gperftools" "\''${TP_INCLUDE_DIR}/gperftools"\n}@;
+                        END { die "failed to patch Darwin gperftools staging\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@build_formula_ragel\(\) \{\n    ensure_formula ragel\n    local prefix\n    prefix="\$\(formula_prefix ragel\)"\n    link_matching_if_missing "\$\{TP_INSTALL_DIR\}/bin" "\$\{prefix\}/bin/ragel"\n\}@build_formula_ragel() {\n    if [[ "\$STARROCKS_USE_NIX_DEPS" == "1" ]]; then\n        if [[ -x "\$TP_INSTALL_DIR/bin/ragel" ]]; then\n            return 0\n        fi\n        check_if_source_exist "\$RAGEL_SOURCE"\n        cd "\$TP_SOURCE_DIR/\$RAGEL_SOURCE"\n        touch aclocal.m4 configure\n        find . -name Makefile.in -exec touch {} +\n        touch ragel/rlparse.cpp ragel/rlparse.h ragel/rlscan.cpp\n        if [[ -f Makefile ]]; then\n            make distclean >/dev/null 2>&1 || true\n        fi\n        ./configure --prefix="\$TP_INSTALL_DIR" --disable-shared --enable-static \\\n            CC="\$CC" CXX="\$CXX" CPPFLAGS="\$CPPFLAGS" CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS"\n        make -j"\$PARALLEL"\n        make install\n        return 0\n    fi\n    ensure_formula ragel\n    local prefix\n    prefix="\$(formula_prefix ragel)"\n    link_matching_if_missing "\''${TP_INSTALL_DIR}/bin" "\''${prefix}/bin/ragel"\n}@;
+                        END { die "failed to patch Darwin ragel source build\n" unless $replaced }
+                      ' thirdparty/build-thirdparty-darwin.sh
+                    perl -0pi -e '
+                      our $replaced;
+                      $replaced += s@setup_build_environment\(\) \{\n    local base_formula\n\n    for base_formula in coreutils gnu-tar wget gnu-getopt autoconf automake libtool cmake ninja bison pkg-config llvm; do\n        ensure_formula "\$\{base_formula\}"\n    done\n\n    export HOMEBREW_PREFIX=.*?\n    export STARROCKS_LLVM_HOME=.*?\n    export PATH=".*?"@setup_build_environment() {\n    export HOMEBREW_PREFIX="\''${HOMEBREW_PREFIX:-/opt/homebrew}"\n    export STARROCKS_LLVM_HOME="\''${STARROCKS_LLVM_HOME:-${llvmPackages.llvm}}"\n    export PATH="${
+                        lib.makeBinPath [
+                          coreutils
+                          gnutar
+                          wget
+                          autoconf
+                          automake
+                          libtool
+                          cmake
+                          ninja
+                          bison
+                          pkg-config
+                          llvmPackages.llvm
+                        ]
+                      }:\''${PATH}:/usr/bin:/usr/sbin:/bin:/sbin"@s;
+                      END { die "failed to patch Darwin setup_build_environment\n" unless $replaced }
+                    ' thirdparty/build-thirdparty-darwin.sh
+                    perl -0pi -e '
+                      our $replaced;
+                      $replaced += s@if ! command -v brew >/dev/null 2>&1; then\n    echo "Homebrew is required on macOS"\n    exit 1\nfi@:@;
+                      END { die "failed to patch Darwin Homebrew requirement\n" unless $replaced }
+                    ' thirdparty/build-thirdparty-darwin.sh
+                      substituteInPlace thirdparty/build-thirdparty-darwin.sh \
+                        --replace-fail 'export AR="''${AR:-''${STARROCKS_LLVM_HOME}/bin/llvm-ar}"' 'export AR="${darwinArWrapper}"' \
+                        --replace-fail 'export RANLIB="''${RANLIB:-''${STARROCKS_LLVM_HOME}/bin/llvm-ranlib}"' 'export RANLIB="${darwinRanlibWrapper}"'
+                      substituteInPlace thirdparty/build-thirdparty-darwin.sh \
+                        --replace-fail 'rapidjson_prefix="$(formula_prefix rapidjson)"' 'if [[ "$STARROCKS_USE_NIX_DEPS" == "1" ]]; then
+                    rapidjson_prefix="$TP_INSTALL_DIR"
+                    if [[ ! -f "$rapidjson_prefix/include/rapidjson/rapidjson.h" ]]; then
+                        echo "RapidJSON header missing before Arrow configure: $rapidjson_prefix/include/rapidjson/rapidjson.h"
+                        exit 1
+                    fi
+                else
+                    rapidjson_prefix="$(formula_prefix rapidjson)"
+                fi'
+                    perl -0pi -e '
+                      our $replaced;
+                        $replaced += s#for package in "\$\{packages\[@\]\}"; do\n    if \[\[ "\$\{package\}" == "\$\{start_package\}" \]\]; then#for package in "\''${packages[@]}"; do\n    echo "===== begin Darwin thirdparty package: \$package"\n    if [[ "\$package" == "\$start_package" ]]; then#;
+                      END { die "failed to patch Darwin package progress marker\n" unless $replaced }
+                    ' thirdparty/build-thirdparty-darwin.sh
                   perl -0pi -e '
                     our $replaced;
-                    $replaced += s@LDFLAGS="-L\$\{TP_INSTALL_DIR\}/lib" \\\n        LIBDIR="lib" \\\n        \./Configure@AR="/usr/bin/libtool" \\\n        RANLIB="/usr/bin/true" \\\n        LDFLAGS="-L\$\{TP_INSTALL_DIR\}/lib" \\\n        LIBDIR="lib" \\\n        ./Configure@;
-                    $replaced += s@make -j"\$\{PARALLEL\}"\n    make install_sw@make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"\n    make install_sw AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@;
-                    $replaced += s@darwin64-arm64-cc\n    make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@darwin64-arm64-cc\n    perl -0pi -e "s|^AR=.*|AR=/usr/bin/libtool|m; s|^RANLIB=.*|RANLIB=/usr/bin/true|m; s|^ARFLAGS=.*|ARFLAGS=-static -o|m" Makefile\n    grep -Fq "/usr/bin/libtool" Makefile\n    grep -Fq "/usr/bin/true" Makefile\n    grep -Fq "ARFLAGS=-static -o" Makefile\n    make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@;
-                    END { die "failed to patch Darwin OpenSSL archive tools\n" unless $replaced == 3 }
+                    $replaced += s@check_if_source_exist "\$\{HYPERSCAN_SOURCE\}"\n    cd "\$\{TP_SOURCE_DIR\}/\$\{HYPERSCAN_SOURCE\}"\n    rm -rf cmake_build@check_if_source_exist "\$HYPERSCAN_SOURCE"\n    export PATH="\$TP_INSTALL_DIR/bin:\$PATH"\n    cd "\$TP_SOURCE_DIR/\$HYPERSCAN_SOURCE"\n    rm -rf cmake_build@;
+                    END { die "failed to patch Darwin Hyperscan PATH\n" unless $replaced }
                   ' thirdparty/build-thirdparty-darwin.sh
+                  perl -0pi -e '
+                    our $replaced;
+                    $replaced += s@    "\$\{OBJCOPY\}" --localize-symbol=cnd_timedwait "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"\n    "\$\{OBJCOPY\}" --localize-symbol=cnd_timedwait_ms "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"\n    "\$\{OBJCOPY\}" --localize-symbol=thrd_is_current "\$\{TP_INSTALL_DIR\}/lib/libserdes\.a"@    if [[ "\$STARROCKS_USE_NIX_DEPS" != "1" ]]; then\n        "\$OBJCOPY" --localize-symbol=cnd_timedwait "\$TP_INSTALL_DIR/lib/libserdes.a"\n        "\$OBJCOPY" --localize-symbol=cnd_timedwait_ms "\$TP_INSTALL_DIR/lib/libserdes.a"\n        "\$OBJCOPY" --localize-symbol=thrd_is_current "\$TP_INSTALL_DIR/lib/libserdes.a"\n    fi@;
+                    END { die "failed to patch Darwin serdes objcopy\n" unless $replaced }
+                  ' thirdparty/build-thirdparty-darwin.sh
+                    substituteInPlace thirdparty/build-thirdparty-darwin.sh \
+                      --replace-fail '        -DRapidJSON_ROOT="''${rapidjson_prefix}" \' '        -DRapidJSON_ROOT="''${rapidjson_prefix}" \
+                  -DRapidJSON_SOURCE=SYSTEM \'
+                      perl -0pi -e '
+                        our $replaced;
+                        $replaced += s@LDFLAGS="-L\$\{TP_INSTALL_DIR\}/lib" \\\n        LIBDIR="lib" \\\n        \./Configure@AR="/usr/bin/libtool" \\\n        RANLIB="/usr/bin/true" \\\n        LDFLAGS="-L\$\{TP_INSTALL_DIR\}/lib" \\\n        LIBDIR="lib" \\\n        ./Configure@;
+                        $replaced += s@make -j"\$\{PARALLEL\}"\n    make install_sw@make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"\n    make install_sw AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@;
+                        $replaced += s@darwin64-arm64-cc\n    make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@darwin64-arm64-cc\n    perl -0pi -e "s|^AR=.*|AR=/usr/bin/libtool|m; s|^RANLIB=.*|RANLIB=/usr/bin/true|m; s|^ARFLAGS=.*|ARFLAGS=-static -o|m" Makefile\n    grep -Fq "/usr/bin/libtool" Makefile\n    grep -Fq "/usr/bin/true" Makefile\n    grep -Fq "ARFLAGS=-static -o" Makefile\n    make -j"\$\{PARALLEL\}" AR="/usr/bin/libtool" ARFLAGS="-static -o" RANLIB="/usr/bin/true"@;
+                        END { die "failed to patch Darwin OpenSSL archive tools\n" unless $replaced == 3 }
+                      ' thirdparty/build-thirdparty-darwin.sh
     ''}
     ${lib.optionalString isLinux ''
           # Keep Ragel's vendored autotools/parser outputs newer than their inputs.

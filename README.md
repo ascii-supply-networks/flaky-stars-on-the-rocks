@@ -15,10 +15,12 @@ provides a NixOS module, and publishes reusable binary cache closures to Cachix.
 - `nixosModules.starrocks`: FE/BE service module.
 - `checks.<linux>.starrocks-single-node`: one FE and one BE.
 - `checks.<linux>.starrocks-multinode`: one FE and two BEs.
+- `checks.aarch64-darwin.starrocks-single-node`: native macOS FE/BE smoke check.
 - `devShells.<system>.default`: Linux and macOS development shell.
 
 Package systems are `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin`. The
-NixOS VM outputs are Linux-only.
+NixOS VM outputs are Linux-only; the Darwin smoke check runs FE and BE directly
+on macOS.
 
 ## Approach
 
@@ -86,13 +88,15 @@ Run smoke checks on Linux:
 
 The `checks.<linux>.*` outputs are NixOS VM tests. They cannot run directly on
 Darwin. From macOS, configure a remote Linux builder or run the checks on a
-Linux machine:
+Linux machine. The Darwin-native smoke check starts a local FE/BE pair on macOS,
+but it does not replace the NixOS VM checks:
 
 ```sh
 nix build .#checks.x86_64-linux.starrocks-single-node -L
 nix build .#checks.x86_64-linux.starrocks-multinode -L
 nix build .#checks.aarch64-linux.starrocks-single-node -L
 nix build .#checks.aarch64-linux.starrocks-multinode -L
+nix build .#checks.aarch64-darwin.starrocks-single-node -L
 ```
 
 ## NixOS Module

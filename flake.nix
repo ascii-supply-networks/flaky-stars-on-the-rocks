@@ -45,6 +45,7 @@
         starrocks-single-node-aarch64 = "aarch64-linux";
       };
       vmSystems = lib.attrValues singleNodeSystems;
+      darwinCheckSystems = [ "aarch64-darwin" ];
 
       singleNodeConfigNames = {
         x86_64-linux = "starrocks-single-node";
@@ -160,18 +161,25 @@
 
       nixosConfigurations = lib.mapAttrs (_name: system: mkSingleNodeConfig system) singleNodeSystems;
 
-      checks = forSystems vmSystems (pkgs: {
-        starrocks-single-node = import ./nix/tests/starrocks-single-node.nix {
-          inherit pkgs;
-          starrocksModule = self.nixosModules.starrocks;
-          starrocksPackage = pkgs.starrocks;
-        };
+      checks =
+        (forSystems vmSystems (pkgs: {
+          starrocks-single-node = import ./nix/tests/starrocks-single-node.nix {
+            inherit pkgs;
+            starrocksModule = self.nixosModules.starrocks;
+            starrocksPackage = pkgs.starrocks;
+          };
 
-        starrocks-multinode = import ./nix/tests/starrocks-multinode.nix {
-          inherit pkgs;
-          starrocksModule = self.nixosModules.starrocks;
-          starrocksPackage = pkgs.starrocks;
-        };
-      });
+          starrocks-multinode = import ./nix/tests/starrocks-multinode.nix {
+            inherit pkgs;
+            starrocksModule = self.nixosModules.starrocks;
+            starrocksPackage = pkgs.starrocks;
+          };
+        }))
+        // (forSystems darwinCheckSystems (pkgs: {
+          starrocks-single-node = import ./nix/tests/starrocks-darwin-single-node.nix {
+            inherit pkgs;
+            starrocksPackage = pkgs.starrocks;
+          };
+        }));
     };
 }
