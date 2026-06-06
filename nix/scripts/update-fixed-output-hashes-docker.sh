@@ -39,7 +39,7 @@ for system in "$@"; do
   docker run --rm \
     --platform "$platform" \
     --pull "$docker_pull_policy" \
-    -e NIX_CONFIG="experimental-features = nix-command flakes" \
+    -e NIX_CONFIG=$'experimental-features = nix-command flakes\nfilter-syscalls = false' \
     -e TARGET_SYSTEM="$system" \
     -v "$repo_root:/repo:ro" \
     -v "$tmp_dir:/out" \
@@ -51,26 +51,43 @@ for system in "$@"; do
       cd /work
 
       git config --global --add safe.directory /work
-      nix/scripts/update-fixed-output-hashes.sh "$TARGET_SYSTEM"
 
-      thirdparty_sources_hash="$(
-        sed -nE "s/^[[:space:]]*$TARGET_SYSTEM = \"([^\"]+)\";/\1/p" \
-          nix/packages/starrocks-thirdparty-sources.nix
-      )"
-      maven_repository_hash="$(
-        sed -nE "s/^[[:space:]]*$TARGET_SYSTEM = \"([^\"]+)\";/\1/p" \
-          nix/packages/starrocks-maven-repository.nix
-      )"
+      nix shell nixpkgs#gnused nixpkgs#perl -c bash -euo pipefail -c '"'"'
+        nix/scripts/update-fixed-output-hashes.sh "$TARGET_SYSTEM"
 
-      if [[ -z "$thirdparty_sources_hash" || -z "$maven_repository_hash" ]]; then
-        echo "failed to read refreshed hashes for $TARGET_SYSTEM" >&2
-        exit 1
-      fi
+        read_fixed_output_hash() {
+          local file="$1"
 
-      {
-        printf "THIRDPARTY_SOURCES_HASH=%q\n" "$thirdparty_sources_hash"
-        printf "MAVEN_REPOSITORY_HASH=%q\n" "$maven_repository_hash"
-      } > "/out/$TARGET_SYSTEM.env"
+          perl -0ne "
+            my \$system = quotemeta(\$ENV{\"TARGET_SYSTEM\"});
+            if (/hashes\\s*=\\s*\\{\\n(.*?)^\\s*\\};/ms) {
+              my \$hashes = \$1;
+              if (\$hashes =~ /^[[:blank:]]*\$system[[:blank:]]*=[[:blank:]]*\"([^\"]+)\"[[:blank:]]*;/m) {
+                print \$1;
+                exit 0;
+              }
+            }
+            exit 1;
+          " "$file"
+        }
+
+        thirdparty_sources_hash="$(
+          read_fixed_output_hash nix/packages/starrocks-thirdparty-sources.nix
+        )"
+        maven_repository_hash="$(
+          read_fixed_output_hash nix/packages/starrocks-maven-repository.nix
+        )"
+
+        if [[ -z "$thirdparty_sources_hash" || -z "$maven_repository_hash" ]]; then
+          echo "failed to read refreshed hashes for $TARGET_SYSTEM" >&2
+          exit 1
+        fi
+
+        {
+          printf "THIRDPARTY_SOURCES_HASH=%q\n" "$thirdparty_sources_hash"
+          printf "MAVEN_REPOSITORY_HASH=%q\n" "$maven_repository_hash"
+        } > "/out/$TARGET_SYSTEM.env"
+      '"'"'
     '
 
   if [[ ! -f "$out_file" ]]; then
