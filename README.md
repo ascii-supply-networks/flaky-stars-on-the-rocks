@@ -110,9 +110,16 @@ For one-BE tables, set `replication_num = "1"`.
 
 ## Updating StarRocks
 
-1. Edit `nix/starrocks-release.nix`.
+The `Update StarRocks release` workflow runs on a schedule and can also be
+started manually with a specific tag. It detects the latest stable upstream
+StarRocks tag, updates `nix/starrocks-release.nix`, refreshes the Linux
+fixed-output hashes, and opens a pull request.
+
+Manual fallback:
+
+1. Run `nix/scripts/update-starrocks-release.sh <tag>`.
 2. Run the `Refresh fixed-output hashes` workflow.
-3. Merge the generated hash PR.
+3. Merge the generated PR.
 4. Run `Build and Publish Cache`.
 5. Fix package patches if the vendored third-party layout changed.
 
@@ -137,7 +144,7 @@ Required GitHub Environment: `publish-nix`
 Runner labels:
 
 - `x86-xlarge` in group `ascii-rs`
-- `aarch-xlarge` in group `Default`
+- `aarch-xlarge` in group `ascii-rs`
 
 The workflow uses `--cores 16 --max-jobs 1`. StarRocks fans out internally, so
 running multiple Nix builds in parallel is usually worse for memory pressure.

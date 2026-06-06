@@ -1,0 +1,6 @@
+self-hosted-runner:
+  labels:
+    - x86-xlarge
+    - aarch-xlarge
+
+config-variables: null

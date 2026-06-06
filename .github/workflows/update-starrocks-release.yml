@@ -1,0 +1,169 @@
+name: Update StarRocks release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "StarRocks release tag. Empty uses the latest stable release."
+        required: false
+        type: string
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: update-starrocks-release
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      should-update: ${{ steps.release.outputs.should-update }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Resolve target release
+        id: release
+        env:
+          REQUESTED_TAG: ${{ github.event.inputs.tag || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            tag="$REQUESTED_TAG"
+          else
+            tag="$(nix/scripts/update-starrocks-release.sh --print-latest)"
+          fi
+
+          current_version="$(
+            sed -nE 's/^[[:space:]]*version = "([^"]+)";/\1/p' nix/starrocks-release.nix
+          )"
+          current_owner="$(
+            sed -nE 's/^[[:space:]]*sourceOwner = "([^"]+)";/\1/p' nix/starrocks-release.nix
+          )"
+          current_repo="$(
+            sed -nE 's/^[[:space:]]*sourceRepo = "([^"]+)";/\1/p' nix/starrocks-release.nix
+          )"
+
+          should_update=true
+          if [[ "$current_owner" == "StarRocks" && "$current_repo" == "starrocks" && "$current_version" == "$tag" ]]; then
+            should_update=false
+          fi
+
+          {
+            printf 'tag=%s\n' "$tag"
+            printf 'should-update=%s\n' "$should_update"
+          } >> "$GITHUB_OUTPUT"
+
+          printf 'target StarRocks release: %s\n' "$tag"
+          printf 'current StarRocks release: %s/%s %s\n' "$current_owner" "$current_repo" "$current_version"
+          printf 'should update: %s\n' "$should_update"
+
+  refresh-x86:
+    needs: resolve
+    if: needs.resolve.outputs.should-update == 'true'
+    runs-on:
+      group: ascii-rs
+      labels: x86-xlarge
+    timeout-minutes: 360
+    outputs:
+      thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}
+      maven-repository-hash: ${{ steps.hashes.outputs.maven-repository-hash }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Update release pin
+        run: nix/scripts/update-starrocks-release.sh "${{ needs.resolve.outputs.tag }}"
+
+      - name: Refresh x86_64-linux hashes
+        run: nix/scripts/update-fixed-output-hashes.sh x86_64-linux
+
+      - name: Export hashes
+        id: hashes
+        run: nix/scripts/update-fixed-output-hashes.sh --print-system x86_64-linux >> "$GITHUB_OUTPUT"
+
+  refresh-aarch:
+    needs: resolve
+    if: needs.resolve.outputs.should-update == 'true'
+    runs-on:
+      group: ascii-rs
+      labels: aarch-xlarge
+    timeout-minutes: 360
+    outputs:
+      thirdparty-sources-hash: ${{ steps.hashes.outputs.thirdparty-sources-hash }}
+      maven-repository-hash: ${{ steps.hashes.outputs.maven-repository-hash }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Update release pin
+        run: nix/scripts/update-starrocks-release.sh "${{ needs.resolve.outputs.tag }}"
+
+      - name: Refresh aarch64-linux hashes
+        run: nix/scripts/update-fixed-output-hashes.sh aarch64-linux
+
+      - name: Export hashes
+        id: hashes
+        run: nix/scripts/update-fixed-output-hashes.sh --print-system aarch64-linux >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: [resolve, refresh-x86, refresh-aarch]
+    if: needs.resolve.outputs.should-update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.3
+
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+
+      - name: Update release pin
+        run: nix/scripts/update-starrocks-release.sh "${{ needs.resolve.outputs.tag }}"
+
+      - name: Apply Linux fixed-output hashes
+        env:
+          X86_THIRDPARTY_SOURCES_HASH: ${{ needs.refresh-x86.outputs.thirdparty-sources-hash }}
+          X86_MAVEN_REPOSITORY_HASH: ${{ needs.refresh-x86.outputs.maven-repository-hash }}
+          AARCH_THIRDPARTY_SOURCES_HASH: ${{ needs.refresh-aarch.outputs.thirdparty-sources-hash }}
+          AARCH_MAVEN_REPOSITORY_HASH: ${{ needs.refresh-aarch.outputs.maven-repository-hash }}
+        run: |
+          set -euo pipefail
+          nix/scripts/update-fixed-output-hashes.sh --replace-only \
+            x86_64-linux "$X86_THIRDPARTY_SOURCES_HASH" "$X86_MAVEN_REPOSITORY_HASH" \
+            aarch64-linux "$AARCH_THIRDPARTY_SOURCES_HASH" "$AARCH_MAVEN_REPOSITORY_HASH"
+
+      - name: Format
+        run: nix fmt
+
+      - name: Check flake shape
+        run: nix flake check --no-build --all-systems
+
+      - name: Show diff
+        run: git diff -- nix/starrocks-release.nix nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          branch: ci/update-starrocks-${{ needs.resolve.outputs.tag }}
+          title: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
+          commit-message: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
+          body: |
+            Updates the pinned StarRocks release and the Linux fixed-output hashes
+            produced by the source and Maven vendoring steps.

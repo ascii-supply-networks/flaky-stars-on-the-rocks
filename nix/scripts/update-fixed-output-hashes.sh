@@ -23,6 +23,36 @@ replace_hash() {
   ' "$file"
 }
 
+read_hash() {
+  local file="$1"
+  local system="$2"
+
+  SYSTEM="$system" perl -0ne '
+    my $system = quotemeta($ENV{"SYSTEM"});
+    if (/hashes\s*=\s*\{\n(.*?)^\s*};/ms) {
+      my $hashes = $1;
+      if ($hashes =~ /^[[:blank:]]*$system[[:blank:]]*=[[:blank:]]*"([^"]+)"[[:blank:]]*;/m) {
+        print $1;
+        exit 0;
+      }
+    }
+    exit 1;
+  ' "$file"
+}
+
+if [[ "${1:-}" == "--print-system" ]]; then
+  system="${2:?usage: $0 --print-system <system>}"
+
+  printf 'thirdparty-sources-hash=%s\n' "$(
+    read_hash "nix/packages/starrocks-thirdparty-sources.nix" "$system"
+  )"
+  printf 'maven-repository-hash=%s\n' "$(
+    read_hash "nix/packages/starrocks-maven-repository.nix" "$system"
+  )"
+
+  exit 0
+fi
+
 if [[ "${1:-}" == "--replace-only" ]]; then
   shift
 

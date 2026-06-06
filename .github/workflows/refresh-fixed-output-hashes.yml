@@ -34,10 +34,7 @@ jobs:
         id: hashes
         run: |
           set -euo pipefail
-          sed -nE 's/^[[:space:]]*x86_64-linux = "([^"]+)";/thirdparty-sources-hash=\1/p' \
-            nix/packages/starrocks-thirdparty-sources.nix >> "$GITHUB_OUTPUT"
-          sed -nE 's/^[[:space:]]*x86_64-linux = "([^"]+)";/maven-repository-hash=\1/p' \
-            nix/packages/starrocks-maven-repository.nix >> "$GITHUB_OUTPUT"
+          nix/scripts/update-fixed-output-hashes.sh --print-system x86_64-linux >> "$GITHUB_OUTPUT"
 
   refresh-aarch:
     runs-on:
@@ -61,10 +58,7 @@ jobs:
         id: hashes
         run: |
           set -euo pipefail
-          sed -nE 's/^[[:space:]]*aarch64-linux = "([^"]+)";/thirdparty-sources-hash=\1/p' \
-            nix/packages/starrocks-thirdparty-sources.nix >> "$GITHUB_OUTPUT"
-          sed -nE 's/^[[:space:]]*aarch64-linux = "([^"]+)";/maven-repository-hash=\1/p' \
-            nix/packages/starrocks-maven-repository.nix >> "$GITHUB_OUTPUT"
+          nix/scripts/update-fixed-output-hashes.sh --print-system aarch64-linux >> "$GITHUB_OUTPUT"
 
   update:
     needs: [refresh-x86, refresh-aarch]
