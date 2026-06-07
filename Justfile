@@ -8,6 +8,29 @@ default:
 
 publish: publish-darwin-aarch
 
+# Refresh all supported fixed-output hashes from macOS.
+refresh-hashes: refresh-darwin-hashes refresh-linux-hashes-docker
+
+# Refresh macOS arm64 fixed-output hashes natively.
+refresh-darwin-hashes:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    current_system="$(nix eval --raw --impure --expr builtins.currentSystem)"
+    if [[ "$current_system" != "{{ darwin-system }}" ]]; then
+      echo "refresh-darwin-hashes must run on {{ darwin-system }}; current system is $current_system" >&2
+      exit 1
+    fi
+
+    darwin_build_cores="${NIX_BUILD_CORES:-$(sysctl -n hw.ncpu)}"
+    if [[ "$darwin_build_cores" -gt 6 ]]; then
+      darwin_build_cores=6
+    fi
+    export NIX_BUILD_CORES="$darwin_build_cores"
+    export NIX_MAX_JOBS="${NIX_MAX_JOBS:-1}"
+
+    nix/scripts/update-fixed-output-hashes.sh {{ darwin-system }}
+
 # Refresh Linux fixed-output hashes from macOS using Linux Docker containers.
 refresh-linux-hashes-docker:
     nix/scripts/update-fixed-output-hashes-docker.sh aarch64-linux x86_64-linux

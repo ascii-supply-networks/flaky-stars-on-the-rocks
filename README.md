@@ -71,11 +71,23 @@ On macOS arm64, publish the server package and development closures with:
 STARROCKS_CACHIX_TOKEN=... just publish-darwin-aarch
 ```
 
+On macOS arm64, refresh the Darwin fixed-output hashes natively with:
+
+```sh
+just refresh-darwin-hashes
+```
+
 On macOS with Docker, refresh the Linux fixed-output hashes in Linux
 containers:
 
 ```sh
 just refresh-linux-hashes-docker
+```
+
+To refresh all supported fixed-output hashes from macOS, run:
+
+```sh
+just refresh-hashes
 ```
 
 Run the single-node VM on Linux:
