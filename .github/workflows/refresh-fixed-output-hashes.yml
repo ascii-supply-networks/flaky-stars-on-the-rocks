@@ -88,11 +88,12 @@ jobs:
       - name: Show diff
         run: git diff -- nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v8.1.1
-        with:
-          branch: ci/refresh-starrocks-fixed-output-hashes
-          title: "Refresh StarRocks fixed-output hashes"
-          commit-message: "Refresh StarRocks fixed-output hashes"
-          body: |
+      - name: Push update branch and create pull request
+        env:
+          BRANCH: ci/refresh-starrocks-fixed-output-hashes
+          TITLE: "Refresh StarRocks fixed-output hashes"
+          COMMIT_MESSAGE: "Refresh StarRocks fixed-output hashes"
+          BODY: |
             Updates the fixed-output hashes produced by the pinned StarRocks source vendoring steps.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/push-update-pr.sh

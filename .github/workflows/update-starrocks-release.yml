@@ -158,12 +158,13 @@ jobs:
       - name: Show diff
         run: git diff -- nix/starrocks-release.nix nix/packages/starrocks-thirdparty-sources.nix nix/packages/starrocks-maven-repository.nix
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v8.1.1
-        with:
-          branch: ci/update-starrocks-${{ needs.resolve.outputs.tag }}
-          title: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
-          commit-message: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
-          body: |
+      - name: Push update branch and create pull request
+        env:
+          BRANCH: ci/update-starrocks-${{ needs.resolve.outputs.tag }}
+          TITLE: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
+          COMMIT_MESSAGE: "Update StarRocks to ${{ needs.resolve.outputs.tag }}"
+          BODY: |
             Updates the pinned StarRocks release and the Linux fixed-output hashes
             produced by the source and Maven vendoring steps.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/push-update-pr.sh

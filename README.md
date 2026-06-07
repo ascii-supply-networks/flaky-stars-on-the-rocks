@@ -121,7 +121,9 @@ For one-BE tables, set `replication_num = "1"`.
 The `Update StarRocks release` workflow runs on a schedule and can also be
 started manually with a specific tag. It detects the latest stable upstream
 StarRocks tag, updates `nix/starrocks-release.nix`, refreshes the Linux
-fixed-output hashes, and opens a pull request.
+fixed-output hashes, and opens a pull request. If the organization disables
+pull request creation by `GITHUB_TOKEN`, the workflow still pushes the update
+branch and writes the manual PR URL to the job summary.
 
 Manual fallback:
 
