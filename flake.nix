@@ -97,6 +97,9 @@
             { };
         starrocks-thirdparty = final.callPackage ./nix/packages/starrocks-thirdparty.nix { };
         starrocks = final.callPackage ./nix/packages/starrocks.nix { thrift = final.starrocks-thrift; };
+        starrocks-single-node-local = final.callPackage ./nix/packages/starrocks-single-node-local.nix {
+          starrocksPackage = final.starrocks;
+        };
       };
 
       packages = forSystems packageSystems (
@@ -111,21 +114,27 @@
           starrocks-maven-repository = pkgs.starrocks-maven-repository;
           starrocks-thirdparty = pkgs.starrocks-thirdparty;
           starrocks-thirdparty-sources = pkgs.starrocks-thirdparty-sources;
+          starrocks-single-node-local = pkgs.starrocks-single-node-local;
         }
         // lib.optionalAttrs (configName != null) {
           starrocks-single-node-vm = self.nixosConfigurations.${configName}.config.system.build.vm;
         }
       );
 
-      apps = forSystems vmSystems (
+      apps = forSystems packageSystems (
         pkgs:
         let
           system = pkgs.stdenv.hostPlatform.system;
-          app = mkApp "${self.packages.${system}.starrocks-single-node-vm}/bin/run-starrocks-single-node-vm" "Run a single-node StarRocks NixOS VM";
+          configName = singleNodeConfigNames.${system} or null;
+          localApp = mkApp "${self.packages.${system}.starrocks-single-node-local}/bin/starrocks-single-node-local" "Run a local single-node StarRocks FE/BE without a VM";
+          vmApp = mkApp "${self.packages.${system}.starrocks-single-node-vm}/bin/run-starrocks-single-node-vm" "Run a single-node StarRocks NixOS VM";
         in
         {
-          default = app;
-          starrocks-single-node-vm = app;
+          starrocks-single-node-local = localApp;
+        }
+        // lib.optionalAttrs (configName != null) {
+          default = vmApp;
+          starrocks-single-node-vm = vmApp;
         }
       );
 

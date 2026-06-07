@@ -16,11 +16,12 @@ provides a NixOS module, and publishes reusable binary cache closures to Cachix.
 - `checks.<linux>.starrocks-single-node`: one FE and one BE.
 - `checks.<linux>.starrocks-multinode`: one FE and two BEs.
 - `checks.aarch64-darwin.starrocks-single-node`: native macOS FE/BE smoke check.
+- `apps.<system>.starrocks-single-node-local`: persistent local FE/BE runner.
 - `devShells.<system>.default`: Linux and macOS development shell.
 
 Package systems are `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin`. The
-NixOS VM outputs are Linux-only; the Darwin smoke check runs FE and BE directly
-on macOS.
+NixOS VM outputs are Linux-only; the local runner starts FE and BE directly on
+Linux and macOS without a VM.
 
 ## Approach
 
@@ -96,12 +97,52 @@ Run the single-node VM on Linux:
 nix run .#starrocks-single-node-vm
 ```
 
+Run a persistent single-node FE/BE locally on macOS arm64 or Linux:
+
+```sh
+nix run .#starrocks-single-node-local
+```
+
+Or from another project:
+
+```sh
+nix run github:ascii-supply-networks/flaky-stars-on-the-rocks#starrocks-single-node-local
+```
+
+The local runner creates `metaxy`, waits until `SHOW BACKENDS` reports the BE as
+alive, prints the test DSN, and writes an export file:
+
+```sh
+STARROCKS_TEST_DSN=mysql://root@127.0.0.1:9030/metaxy
+source ~/.local/state/starrocks-single-node-local/starrocks-test-env.sh
+```
+
+It keeps running until interrupted and then stops the FE/BE processes. State is
+kept under `${XDG_STATE_HOME:-$HOME/.local/state}/starrocks-single-node-local`
+by default. Override ports or state with environment variables:
+
+```sh
+STARROCKS_STATE_DIR=$PWD/.starrocks \
+STARROCKS_QUERY_PORT=19030 \
+STARROCKS_BE_HEARTBEAT_PORT=19050 \
+nix run .#starrocks-single-node-local
+```
+
+For tables on the single-node runner, set `replication_num = "1"`:
+
+```sql
+CREATE TABLE metaxy.demo (v INT)
+DUPLICATE KEY(v)
+DISTRIBUTED BY HASH(v) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+```
+
 Run smoke checks on Linux:
 
 The `checks.<linux>.*` outputs are NixOS VM tests. They cannot run directly on
 Darwin. From macOS, configure a remote Linux builder or run the checks on a
-Linux machine. The Darwin-native smoke check starts a local FE/BE pair on macOS,
-but it does not replace the NixOS VM checks:
+Linux machine. The local runner is the reusable dev/test entrypoint, but it does
+not replace the NixOS VM checks:
 
 ```sh
 nix build .#checks.x86_64-linux.starrocks-single-node -L
