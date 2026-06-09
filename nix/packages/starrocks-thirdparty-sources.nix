@@ -157,6 +157,9 @@ stdenvNoCC.mkDerivation {
     substituteInPlace download-thirdparty.sh \
       --replace-fail 'wget --progress=dot:mega --tries=3 --no-check-certificate' \
         'wget --progress=dot:mega --tries=3 --timeout=120 --read-timeout=120 --no-check-certificate'
+    substituteInPlace vars-aarch64.sh \
+      --replace-fail 'https://cdn-thirdparty.starrocks.com/jindosdk-4.6.8-linux-el7-aarch64.tar.gz' \
+        'https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.8/jindosdk-4.6.8-linux-el7-aarch64.tar.gz'
     ${lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
       export STARROCKS_TP_VARS_OVERRIDE=$PWD/vars-darwin-aarch64.sh
     ''}
