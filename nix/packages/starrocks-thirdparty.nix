@@ -185,6 +185,17 @@ stdenv.mkDerivation {
 
   postPatch = ''
     patchShebangs thirdparty
+    ${lib.optionalString isDarwin ''
+      substituteInPlace thirdparty/download-thirdparty.sh \
+        --replace-fail '    if [[ "''${STARROCKS_SKIP_THIRDPARTY_DOWNLOAD:-0}" == "1" ]]; then' \
+          '    SOURCE=$TP_ARCH"_SOURCE"
+      if [[ "''${STARROCKS_SKIP_EXTRACTED_THIRDPARTY_DOWNLOADS:-0}" == "1" && -n "''${!SOURCE}" && -d "$TP_SOURCE_DIR/''${!SOURCE}" ]]; then
+          echo "Source ''${!SOURCE} already exists."
+          continue
+      fi
+
+      if [[ "''${STARROCKS_SKIP_THIRDPARTY_DOWNLOAD:-0}" == "1" ]]; then'
+    ''}
     ${lib.optionalString isLinux ''
       substituteInPlace thirdparty/vars.sh \
         --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
@@ -208,6 +219,7 @@ stdenv.mkDerivation {
       export PATH="$PATH:/usr/bin:/usr/sbin:/bin:/sbin"
       export HOMEBREW_NO_AUTO_UPDATE=1
       export STARROCKS_USE_NIX_DEPS=1
+      export STARROCKS_SKIP_EXTRACTED_THIRDPARTY_DOWNLOADS=1
       export PCRE2_ROOT_DIR="$PWD/thirdparty/nix-pcre2-root"
     ''}
 
