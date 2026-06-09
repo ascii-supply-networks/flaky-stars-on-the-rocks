@@ -31,8 +31,8 @@ let
     .${system} or (throw "StarRocks third-party source vendoring is not supported on ${system}");
 
   hashes = {
-    x86_64-linux = "sha256-vJ7QQ3fvpUBchEHrprRK3lnLhtfLCA1Fh8wOOzzNW60=";
-    aarch64-linux = "sha256-RNivb9RfyEgmpiQSZ0SoP3BfaOPErzMGjqsJs5hOp3o=";
+    x86_64-linux = "sha256-DujI2PDVOrJZgk8D0HjIy9/hFGxYsX/co/qFSyXCvxM=";
+    aarch64-linux = "sha256-g0aNHZysUyd8r1rqAPdaHolFJByLF0GUrn//1fwXBow=";
     aarch64-darwin = "sha256-edXHFQFOgINAjnmQHqc7CzwM9D5sSKTO49aeeYH/ArU=";
   };
 
