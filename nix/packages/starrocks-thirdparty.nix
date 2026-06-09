@@ -413,10 +413,13 @@ stdenv.mkDerivation {
           perl -0pi -e '
             our $replaced;
             $replaced += s@(\nvoid signal_setup\(\) \{)@\nstatic void server_signal_exit(int signum) {\n    (void) signum;\n    server_exit();\n}\n$1@;
+            $replaced += s@void handle_sigchld\(\) \{@void handle_sigchld(int signum) {\n    (void) signum;@;
             $replaced += s@act_sigterm\.sa_handler = server_exit;@act_sigterm.sa_handler = server_signal_exit;@;
             $replaced += s@act_sigint\.sa_handler = server_exit;@act_sigint.sa_handler = server_signal_exit;@;
-            END { die "failed to patch cyrus-sasl signal handler signature\n" unless $replaced == 3 }
+            END { die "failed to patch cyrus-sasl signal handler signature\n" unless $replaced == 4 }
           ' thirdparty/src/cyrus-sasl-2.1.28/saslauthd/saslauthd-main.c
+          substituteInPlace thirdparty/src/cyrus-sasl-2.1.28/saslauthd/saslauthd-main.h \
+            --replace-fail 'extern void	handle_sigchld();' 'extern void	handle_sigchld(int);'
 
           # Keep Ragel's vendored autotools/parser outputs newer than their inputs.
           # Otherwise make tries to regenerate them with unavailable automake-1.15.
