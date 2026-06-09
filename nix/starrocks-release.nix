@@ -1,8 +1,8 @@
 {
-  version = "pr-74009-07d522";
-  sourceOwner = "geoHeil";
+  version = "main-cde4487";
+  sourceOwner = "StarRocks";
   sourceRepo = "starrocks";
-  rev = "07d52255a8db7cf6ec4c73217d3622ccea421a8d";
-  commitHash = "07d52255a8db7cf6ec4c73217d3622ccea421a8d";
-  sourceHash = "sha256-69Stl+AkxTGYZlv0tFiI0IKKR93vJ6T0pao8ZRBUP2Q=";
+  rev = "cde448776a5538b80b5021f12310ac7d7bef5375";
+  commitHash = "cde448776a5538b80b5021f12310ac7d7bef5375";
+  sourceHash = "sha256-JjFkjW69rg1bfh/hVhyBc4gZiEm0uf7PL2Hc1/ysvmI=";
 }

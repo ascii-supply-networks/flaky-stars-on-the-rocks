@@ -154,6 +154,9 @@ stdenvNoCC.mkDerivation {
     substituteInPlace vars.sh \
       --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
       --replace-fail 'BREAK_PAD HADOOPSRC JDK RAGEL HYPERSCAN' 'BREAK_PAD HADOOPSRC RAGEL HYPERSCAN'
+    substituteInPlace download-thirdparty.sh \
+      --replace-fail 'wget --progress=dot:mega --tries=3 --no-check-certificate' \
+        'wget --progress=dot:mega --tries=3 --timeout=120 --read-timeout=120 --no-check-certificate'
     ${lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
       export STARROCKS_TP_VARS_OVERRIDE=$PWD/vars-darwin-aarch64.sh
     ''}
