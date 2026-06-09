@@ -33,7 +33,7 @@ let
   hashes = {
     x86_64-linux = "sha256-P020LK9s6/CxTtG84+zYpYCaYdzgGbfZSmdv7ThA93g=";
     aarch64-linux = "sha256-LVbsor1MVlK9jm8iq9UrU8kA67Ihc/UODqxGxx3Zqaw=";
-    aarch64-darwin = "sha256-edXHFQFOgINAjnmQHqc7CzwM9D5sSKTO49aeeYH/ArU=";
+    aarch64-darwin = "sha256-qjYJK0BgQVLD+LTJIg3glYgP7j1MC8K6XrL57sGveqs=";
   };
 
   awsCrtArchives =
@@ -109,6 +109,11 @@ let
       name: archive: ''ln -s ${archive} "$STARROCKS_AWS_CRT_ARCHIVES_DIR/${name}.zip"''
     ) awsCrtArchives
   );
+
+  gcsConnectorJar = fetchurl {
+    url = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.11/gcs-connector-hadoop3-2.2.11-shaded.jar";
+    hash = "sha256-wGc8osIC5BZ1rtA6zKVxgPGbv7kGUlrZf0DeirfTL6M=";
+  };
 in
 stdenvNoCC.mkDerivation {
   pname = "starrocks-thirdparty-sources";
@@ -157,11 +162,23 @@ stdenvNoCC.mkDerivation {
     substituteInPlace download-thirdparty.sh \
       --replace-fail 'wget --progress=dot:mega --tries=3 --no-check-certificate' \
         'wget --progress=dot:mega --tries=3 --timeout=120 --read-timeout=120 --no-check-certificate'
+    substituteInPlace download-thirdparty.sh \
+      --replace-fail '    if [[ "''${STARROCKS_SKIP_THIRDPARTY_DOWNLOAD:-0}" == "1" ]]; then' \
+        '    SOURCE=$TP_ARCH"_SOURCE"
+    if [[ "''${STARROCKS_SKIP_EXTRACTED_THIRDPARTY_DOWNLOADS:-0}" == "1" && -n "''${!SOURCE}" && -d "$TP_SOURCE_DIR/''${!SOURCE}" ]]; then
+        echo "Source ''${!SOURCE} already exists."
+        continue
+    fi
+
+    if [[ "''${STARROCKS_SKIP_THIRDPARTY_DOWNLOAD:-0}" == "1" ]]; then'
     substituteInPlace vars-aarch64.sh \
       --replace-fail 'https://cdn-thirdparty.starrocks.com/jindosdk-4.6.8-linux-el7-aarch64.tar.gz' \
         'https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.8/jindosdk-4.6.8-linux-el7-aarch64.tar.gz'
     ${lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
       export STARROCKS_TP_VARS_OVERRIDE=$PWD/vars-darwin-aarch64.sh
+      export STARROCKS_SKIP_EXTRACTED_THIRDPARTY_DOWNLOADS=1
+      mkdir -p src/gcs-connector-hadoop3-2.2.11-shaded
+      cp ${gcsConnectorJar} src/gcs-connector-hadoop3-2.2.11-shaded/gcs-connector-hadoop3-2.2.11-shaded.jar
     ''}
 
     export STARROCKS_AWS_CRT_ARCHIVES_DIR=$TMPDIR/aws-crt-archives
