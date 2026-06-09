@@ -410,6 +410,14 @@ stdenv.mkDerivation {
                       ' thirdparty/build-thirdparty-darwin.sh
     ''}
     ${lib.optionalString isLinux ''
+          perl -0pi -e '
+            our $replaced;
+            $replaced += s@(\nvoid signal_setup\(\) \{)@\nstatic void server_signal_exit(int signum) {\n    (void) signum;\n    server_exit();\n}\n$1@;
+            $replaced += s@act_sigterm\.sa_handler = server_exit;@act_sigterm.sa_handler = server_signal_exit;@;
+            $replaced += s@act_sigint\.sa_handler = server_exit;@act_sigint.sa_handler = server_signal_exit;@;
+            END { die "failed to patch cyrus-sasl signal handler signature\n" unless $replaced == 3 }
+          ' thirdparty/src/cyrus-sasl-2.1.28/saslauthd/saslauthd-main.c
+
           # Keep Ragel's vendored autotools/parser outputs newer than their inputs.
           # Otherwise make tries to regenerate them with unavailable automake-1.15.
           touch thirdparty/src/ragel-6.10/aclocal.m4
