@@ -159,6 +159,9 @@ stdenvNoCC.mkDerivation {
     substituteInPlace vars.sh \
       --replace-fail 'MACHINE_TYPE=$(uname -m)' 'MACHINE_TYPE=${machine}' \
       --replace-fail 'BREAK_PAD HADOOPSRC JDK RAGEL HYPERSCAN' 'BREAK_PAD HADOOPSRC RAGEL HYPERSCAN'
+    substituteInPlace vars.sh \
+      --replace-fail 'https://fossies.org/linux/misc/bzip2-1.0.8.tar.gz' \
+        'https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz'
     substituteInPlace download-thirdparty.sh \
       --replace-fail 'wget --progress=dot:mega --tries=3 --no-check-certificate' \
         'wget --progress=dot:mega --tries=3 --timeout=120 --read-timeout=120 --no-check-certificate'

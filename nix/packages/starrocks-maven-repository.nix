@@ -19,9 +19,9 @@ let
   release = import ../starrocks-release.nix;
   system = stdenvNoCC.hostPlatform.system;
   hashes = {
-    x86_64-linux = "sha256-A3ZGPnc6LRwtxoEguB2ro7mJSkD19fU3UqU+fsa7oVY=";
-    aarch64-linux = "sha256-/dSb8KrHBihRGdDzW0qvroVfxZWZbnUKcot8S5Nrhu8=";
-    aarch64-darwin = "sha256-A3ZGPnc6LRwtxoEguB2ro7mJSkD19fU3UqU+fsa7oVY=";
+    x86_64-linux = "sha256-S+mwcAswYoL+69ghmOvVnWvZlVwZRRcoE+8rktsf8Hw=";
+    aarch64-linux = "sha256-kIo56sCKKOPOsUCiz4sDF9cbVRZWQHF7Xa9bdyMXs/0=";
+    aarch64-darwin = "sha256-S+mwcAswYoL+69ghmOvVnWvZlVwZRRcoE+8rktsf8Hw=";
   };
   setupMavenJavaHome = ''
     real_java_home="$(${jdk}/bin/java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.home = //p')"

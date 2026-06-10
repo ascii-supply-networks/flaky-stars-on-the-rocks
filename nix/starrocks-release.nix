@@ -1,8 +1,8 @@
 {
-  version = "main-c1d656a";
+  version = "main-2d26da";
   sourceOwner = "StarRocks";
   sourceRepo = "starrocks";
-  rev = "c1d656a535228f7a6a0cedb60830d0bfc7b6dd5e";
-  commitHash = "c1d656a535228f7a6a0cedb60830d0bfc7b6dd5e";
-  sourceHash = "sha256-KGAVrGzAIzDSXM76i0euBAzTThAABouaXzrS8+sJJeo=";
+  rev = "2d26da3c09f7636e39b9562f78963ccbcc9868c2";
+  commitHash = "2d26da3c09f7636e39b9562f78963ccbcc9868c2";
+  sourceHash = "sha256-4k/w1lZXGCgy6ptU6Qp5A4vR5S3umBVozIDC4CMVDQc=";
 }
